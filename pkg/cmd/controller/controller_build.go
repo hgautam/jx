@@ -8,6 +8,7 @@ import (
 	"strings"
 	"text/template"
 	"time"
+	"unicode"
 
 	"github.com/jenkins-x/jx/pkg/cmd/step/git/credentials"
 
@@ -35,6 +36,7 @@ import (
 	"github.com/spf13/cobra"
 	tektonclient "github.com/tektoncd/pipeline/pkg/client/clientset/versioned"
 	corev1 "k8s.io/api/core/v1"
+	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/cache"
@@ -44,6 +46,7 @@ import (
 
 const (
 	defaultTargetURLTemplate = "{{ .BaseURL }}/teams/{{ .Namespace }}/projects/{{ .Owner }}/{{ .Repository }}/{{ .Branch }}/{{ .Build }}"
+	foghornDeploymentName    = "lighthouse-foghorn"
 )
 
 // ControllerBuildOptions are the flags for the commands
@@ -63,6 +66,9 @@ type ControllerBuildOptions struct {
 
 	// private fields added for easier testing
 	gitHubProvider gits.GitProvider
+
+	// private field to record whether the lighthouse-foghorn deployment is present - if so, we skip status reporting
+	foghornPresent bool
 }
 
 // LongTermStorageLogWriter is an implementation of logs.LogWriter that saves the obtained log lines
@@ -141,15 +147,6 @@ func NewCmdControllerBuild(commonOpts *opts.CommonOptions) *cobra.Command {
 
 // Run implements this command
 func (o *ControllerBuildOptions) Run() error {
-	apisClient, err := o.ApiExtensionsClient()
-	if err != nil {
-		return err
-	}
-	err = kube.RegisterPipelineActivityCRD(apisClient)
-	if err != nil {
-		return err
-	}
-
 	jxClient, devNs, err := o.JXClientAndDevNamespace()
 	if err != nil {
 		return err
@@ -171,6 +168,14 @@ func (o *ControllerBuildOptions) Run() error {
 		}
 	}
 	if o.GitReporting {
+		_, err = kubeClient.AppsV1().Deployments(devNs).Get(foghornDeploymentName, metav1.GetOptions{})
+		if err != nil {
+			if !k8sErrors.IsNotFound(err) {
+				log.Logger().Warnf("failed to look up deployment %s in namespace %s: %s", foghornDeploymentName, devNs, err)
+			}
+		} else {
+			o.foghornPresent = true
+		}
 		if o.TargetURLTemplate == "" {
 			o.TargetURLTemplate = os.Getenv("TARGET_URL_TEMPLATE")
 		}
@@ -414,6 +419,8 @@ func (o *ControllerBuildOptions) completeBuildSourceInfo(activity *v1.PipelineAc
 		}
 		if pr.Author != nil {
 			activity.Spec.Author = pr.Author.Login
+			activity.Spec.AuthorAvatarURL = pr.Author.AvatarURL
+			activity.Spec.AuthorURL = pr.Author.URL
 		}
 		activity.Spec.PullTitle = pr.Title
 		log.Logger().Infof("[BuildInfo] PipelineActivity set with author=%s and PR title=%s", activity.Spec.Author, activity.Spec.PullTitle)
@@ -430,6 +437,8 @@ func (o *ControllerBuildOptions) completeBuildSourceInfo(activity *v1.PipelineAc
 		if len(gitCommits) > 0 {
 			if gitCommits[0] != nil && gitCommits[0].Author != nil {
 				activity.Spec.Author = gitCommits[0].Author.Login
+				activity.Spec.AuthorAvatarURL = gitCommits[0].Author.AvatarURL
+				activity.Spec.AuthorURL = gitCommits[0].Author.URL
 				activity.Spec.LastCommitMessage = gitCommits[0].Message
 			}
 		}
@@ -1207,7 +1216,7 @@ func (o *ControllerBuildOptions) ensureSourceRepositoryHasLabels(jxClient versio
 }
 
 func (o *ControllerBuildOptions) reportStatus(kubeClient kubernetes.Interface, ns string, activity *v1.PipelineActivity, pri *tekton.PipelineRunInfo, pod *corev1.Pod) {
-	if !o.GitReporting {
+	if !o.GitReporting || o.foghornPresent {
 		return
 	}
 
@@ -1454,4 +1463,24 @@ func logJobCompletedState(activity *v1.PipelineActivity, pri *tekton.PipelineRun
 		fields["pipelineRunType"] = pri.Type
 	}
 	log.Logger().WithFields(fields).Infof("Build %s %s", activity.Name, activity.Spec.Status)
+}
+
+// DigitSuffix outputs digital suffix
+func DigitSuffix(text string) string {
+	answer := ""
+	for {
+		l := len(text)
+		if l == 0 {
+			return answer
+		}
+		lastChar := text[l-1:]
+		for _, rune := range lastChar {
+			if !unicode.IsDigit(rune) {
+				return answer
+			}
+			break
+		}
+		answer = lastChar + answer
+		text = text[0 : l-1]
+	}
 }

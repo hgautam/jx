@@ -1336,6 +1336,10 @@ definitions:
         type: array
       author:
         type: string
+      authorAvatarURL:
+        type: string
+      authorURL:
+        type: string
       baseSHA:
         type: string
       batchPipelineActivity:
@@ -1385,6 +1389,9 @@ definitions:
       version:
         type: string
       workflow:
+        description: Deprecated - Workflow functionality was removed and is obsolete
+          Keeping these fields to ensure backwards compatibility Should be removed
+          when we increment spec version
         type: string
       workflowMessage:
         type: string

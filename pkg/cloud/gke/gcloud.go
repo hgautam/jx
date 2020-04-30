@@ -14,6 +14,7 @@ import (
 
 	osUser "os/user"
 
+	"github.com/jenkins-x/jx/pkg/kube/naming"
 	"github.com/jenkins-x/jx/pkg/log"
 	"github.com/jenkins-x/jx/pkg/util"
 	"github.com/pkg/errors"
@@ -555,19 +556,36 @@ func (g *GCloud) DeleteAllObjectsInBucket(bucketName string) error {
 // StreamTransferFileFromBucket will perform a stream transfer from the GCS bucket to stdout and return a scanner
 // with the piped result
 func StreamTransferFileFromBucket(fullBucketURL string) (*bufio.Scanner, error) {
+	bucketAccessible, err := isBucketAccessible(fullBucketURL)
+	if !bucketAccessible || err != nil {
+		return nil, errors.Wrap(err, "can't access bucket")
+	}
+
 	args := []string{"cp", fullBucketURL, "-"}
 	cmd := exec.Command("gsutil", args...)
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "can't get cmd stdout")
 	}
 	err = cmd.Start()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "error streaming the logs from bucket")
 	}
 	scanner := bufio.NewScanner(stdout)
 	scanner.Split(bufio.ScanLines)
-	return scanner, err
+	return scanner, nil
+}
+
+func isBucketAccessible(bucketURL string) (bool, error) {
+	args := []string{"stat", bucketURL}
+	cmd := exec.Command("gsutil", args...)
+
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return false, errors.New(string(out))
+	}
+
+	return true, nil
 }
 
 // DeleteBucket deletes a Google storage bucket
@@ -1361,7 +1379,7 @@ func (g *GCloud) CreateGCPServiceAccount(kubeClient kubernetes.Interface, servic
 	}
 	defer os.RemoveAll(serviceAccountDir)
 
-	serviceAccountName := ServiceAccountName(clusterName, serviceAbbreviation)
+	serviceAccountName := naming.ToValidGCPServiceAccount(ServiceAccountName(clusterName, serviceAbbreviation))
 
 	serviceAccountPath, err := g.GetOrCreateServiceAccount(serviceAccountName, projectID, serviceAccountDir, serviceAccountRoles)
 	if err != nil {

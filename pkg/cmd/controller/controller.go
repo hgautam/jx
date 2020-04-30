@@ -3,10 +3,9 @@ package controller
 import (
 	"github.com/jenkins-x/jx/pkg/cmd/controller/pipeline"
 	"github.com/jenkins-x/jx/pkg/cmd/helper"
-	"github.com/spf13/cobra"
-
 	"github.com/jenkins-x/jx/pkg/cmd/opts"
 	"github.com/jenkins-x/jx/pkg/cmd/templates"
+	"github.com/spf13/cobra"
 )
 
 // ControllerOptions contains the CLI options
@@ -50,7 +49,6 @@ func NewCmdController(commonOpts *opts.CommonOptions) *cobra.Command {
 	cmd.AddCommand(pipeline.NewCmdControllerPipelineRunner(commonOpts))
 	cmd.AddCommand(NewCmdControllerRole(commonOpts))
 	cmd.AddCommand(NewCmdControllerTeam(commonOpts))
-	cmd.AddCommand(NewCmdControllerWorkflow(commonOpts))
 	cmd.AddCommand(NewCmdControllerCommitStatus(commonOpts))
 	return cmd
 }

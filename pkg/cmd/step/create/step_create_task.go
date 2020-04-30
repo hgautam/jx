@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"strings"
 	"time"
 
@@ -1401,8 +1402,13 @@ func (o *StepCreateTaskOptions) runStepCommand(step *syntax.Step) error {
 
 	commandText := strings.Replace(step.GetFullCommand(), "\\$", "$", -1)
 
+	name := "/bin/sh"
+	if runtime.GOOS == "windows" {
+		name = "sh"
+	}
+
 	cmd := util.Command{
-		Name: "/bin/sh",
+		Name: name,
 		Args: []string{"-c", commandText},
 		Out:  o.Out,
 		Err:  o.Err,
@@ -1437,25 +1443,6 @@ func (o *StepCreateTaskOptions) invokeSteps(steps []*syntax.Step) error {
 		}
 	}
 	return nil
-}
-
-func (o *StepCreateTaskOptions) dockerImage(projectConfig *config.ProjectConfig, gitInfo *gits.GitRepository) string {
-	dockerRegistry := o.getDockerRegistry(projectConfig)
-
-	dockerRegistryOrg := o.DockerRegistryOrg
-	if dockerRegistryOrg == "" {
-		dockerRegistryOrg = o.GetDockerRegistryOrg(projectConfig, gitInfo)
-	}
-	appName := gitInfo.Name
-	return dockerRegistry + "/" + dockerRegistryOrg + "/" + appName
-}
-
-func (o *StepCreateTaskOptions) getDockerRegistry(projectConfig *config.ProjectConfig) string {
-	dockerRegistry := o.DockerRegistry
-	if dockerRegistry == "" {
-		dockerRegistry = o.GetDockerRegistry(projectConfig)
-	}
-	return dockerRegistry
 }
 
 func (o *StepCreateTaskOptions) getClientsAndNamespace() (tektonclient.Interface, jxclient.Interface, kubeclient.Interface, string, error) {

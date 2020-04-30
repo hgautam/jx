@@ -189,6 +189,14 @@ func (o *StepHelmApplyOptions) Run() error {
 		defer os.RemoveAll(rootTmpDir)
 	}
 
+	if os.Getenv(kube.DisableBuildLockEnvKey) == "" {
+		release, err := kube.AcquireBuildLock(kubeClient, devNs, ns)
+		if err != nil {
+			return errors.Wrapf(err, "fail to acquire the lock")
+		}
+		defer release()
+	}
+
 	// lets use the same child dir name as the original as helm is quite particular about the name of the directory it runs from
 	_, name := filepath.Split(dir)
 	if name == "" {
