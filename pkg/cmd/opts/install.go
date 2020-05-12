@@ -8,10 +8,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jenkins-x/jx/pkg/brew"
 	"github.com/jenkins-x/jx/pkg/cloud/openshift"
 	"github.com/jenkins-x/jx/pkg/dependencymatrix"
-
-	"github.com/jenkins-x/jx/pkg/brew"
+	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 
 	"github.com/jenkins-x/jx/pkg/ksync"
 
@@ -549,7 +549,10 @@ func (o *CommonOptions) InstallOciCli() error {
 	if err != nil {
 		return err
 	}
-	os.Chmod(filePath, 0755)
+	err = os.Chmod(filePath, 0755)
+	if err != nil {
+		return err
+	}
 
 	err = o.RunCommandVerbose(filePath, "--accept-all-defaults")
 	if err != nil {
@@ -575,7 +578,10 @@ func (o *CommonOptions) GetCloudProvider(p string) (string, error) {
 			Help:    "Cloud service providing the Kubernetes cluster, Google (GKE), Oracle (OKE), Azure (AKS)",
 		}
 
-		survey.AskOne(prompt, &p, nil, surveyOpts)
+		err := survey.AskOne(prompt, &p, nil, surveyOpts)
+		if err != nil {
+			return "", err
+		}
 	}
 	return p, nil
 }
@@ -627,7 +633,10 @@ func (o *CommonOptions) InstallMissingDependencies(providerSpecificDeps []string
 			Options: deps,
 			Default: deps,
 		}
-		survey.AskOne(prompt, &install, nil, surveyOpts)
+		err := survey.AskOne(prompt, &install, nil, surveyOpts)
+		if err != nil {
+			return err
+		}
 	}
 
 	return o.DoInstallMissingDependencies(install)
@@ -906,7 +915,7 @@ func (o *CommonOptions) CreateWebhookProw(gitURL string, gitProvider gits.GitPro
 	}
 	webhookUrl := util.UrlJoin(baseURL, "hook")
 
-	hmacToken, err := client.CoreV1().Secrets(ns).Get("hmac-token", metav1.GetOptions{})
+	hmacToken, err := o.GetHMACTokenSecret()
 	if err != nil {
 		return err
 	}
@@ -918,10 +927,31 @@ func (o *CommonOptions) CreateWebhookProw(gitURL string, gitProvider gits.GitPro
 		Owner:       gitInfo.Organisation,
 		Repo:        gitInfo,
 		URL:         webhookUrl,
-		Secret:      string(hmacToken.Data["hmac"]),
+		Secret:      hmacToken,
 		InsecureSSL: isInsecureSSL,
 	}
 	return gitProvider.CreateWebHook(webhook)
+}
+
+// GetHMACTokenSecret gets the appropriate HMAC secret, for either Prow or Lighthouse
+func (o *CommonOptions) GetHMACTokenSecret() (string, error) {
+	client, err := o.KubeClient()
+	if err != nil {
+		return "", err
+	}
+	ns, _, err := kube.GetDevNamespace(client, o.currentNamespace)
+	if err != nil {
+		return "", err
+	}
+	hmacTokenSecret, err := client.CoreV1().Secrets(ns).Get("hmac-token", metav1.GetOptions{})
+	if err != nil && k8sErrors.IsNotFound(err) {
+		// Try again with the Lighthouse HMAC token name
+		hmacTokenSecret, err = client.CoreV1().Secrets(ns).Get("lighthouse-hmac-token", metav1.GetOptions{})
+	}
+	if err != nil {
+		return "", err
+	}
+	return string(hmacTokenSecret.Data["hmac"]), nil
 }
 
 // IsProw checks if prow is available in the cluster
