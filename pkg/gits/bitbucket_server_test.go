@@ -50,8 +50,20 @@ var bitbucketServerRouter = util.Router{
 		"GET": "pr.json",
 		"PUT": "pr.json",
 	},
+	"/rest/api/1.0/projects/TEST-ORG/repos/test-repo/pull-requests/7": util.MethodMap{
+		"GET": "pr-merge-success.json",
+	},
 	"/rest/api/1.0/projects/TEST-ORG/repos/test-repo/pull-requests/1/commits": util.MethodMap{
 		"GET": "pr-commits.json",
+	},
+	"/rest/api/1.0/projects/TEST-ORG/repos/test-repo/pull-requests/7/commits": util.MethodMap{
+		"GET": "pr-commits.json",
+	},
+	"/rest/api/1.0/projects/TEST-ORG/repos/test-repo/pull-requests/1/activities": util.MethodMap{
+		"GET": "pr-activity.json",
+	},
+	"/rest/api/1.0/projects/TEST-ORG/repos/test-repo/pull-requests/7/activities": util.MethodMap{
+		"GET": "pr-activity.json",
 	},
 	"/rest/api/1.0/projects/TEST-ORG/repos/test-repo/pull-requests/1/merge": util.MethodMap{
 		"POST": "pr-merge-success.json",
@@ -71,6 +83,9 @@ var bitbucketServerRouter = util.Router{
 	},
 	"/rest/build-status/1.0/commits/d6f24ee03d76a2caf0a4e1975fb43e8f61759b9c": util.MethodMap{
 		"GET": "build-statuses.json",
+	},
+	"/rest/api/1.0/projects/test-org/repos/repo/permissions/users": util.MethodMap{
+		"PUT": "user.json",
 	},
 }
 
@@ -227,6 +242,7 @@ func (suite *BitbucketServerProviderTestSuite) TestCreatePullRequest() {
 	suite.Require().NotNil(pr)
 	suite.Require().Nil(err)
 	suite.Require().Equal(*pr.State, "OPEN")
+	suite.Require().Equal(pr.Title, args.Title)
 }
 
 func (suite *BitbucketServerProviderTestSuite) TestUpdatePullRequestStatus() {
@@ -250,17 +266,18 @@ func (suite *BitbucketServerProviderTestSuite) TestUpdatePullRequestStatus() {
 func (suite *BitbucketServerProviderTestSuite) TestGetPullRequest() {
 
 	pr, err := suite.provider.GetPullRequest(
-		"test-user",
+		"TEST-ORG",
 		&gits.GitRepository{Name: "test-repo", Project: "TEST-ORG"},
 		1,
 	)
 
 	suite.Require().Nil(err)
 	suite.Require().Equal(*pr.Number, 1)
+	suite.Require().Equal(pr.Title, "Test Pull Request")
 }
 
 func (suite *BitbucketServerProviderTestSuite) TestPullRequestCommits() {
-	commits, err := suite.provider.GetPullRequestCommits("test-user", &gits.GitRepository{
+	commits, err := suite.provider.GetPullRequestCommits("TEST-ORG", &gits.GitRepository{
 		URL:     "https://auth.example.com/projects/TEST-ORG/repos/test-repo",
 		Name:    "test-repo",
 		Project: "TEST-ORG",
@@ -314,6 +331,17 @@ func (suite *BitbucketServerProviderTestSuite) TestMergePullRequest() {
 	err := suite.provider.MergePullRequest(pr, "Merging from unit tests")
 
 	suite.Require().Nil(err)
+
+	pr2, err := suite.provider.GetPullRequest(
+		"TEST-ORG",
+		&gits.GitRepository{Name: "test-repo", Project: "TEST-ORG"},
+		7,
+	)
+
+	suite.Require().Nil(err)
+	suite.Require().Equal(*pr2.Number, 7)
+	suite.T().Logf("PR: %+v", pr2)
+	suite.Require().Equal(*pr2.Merged, true)
 }
 
 func (suite *BitbucketServerProviderTestSuite) TestJenkinsWebHookPath() {

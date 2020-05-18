@@ -358,6 +358,9 @@ func (b *BitbucketServerProvider) ForkRepository(originalOrg, name, destinationO
 }
 
 func (b *BitbucketServerProvider) CreatePullRequest(data *GitPullRequestArguments) (*GitPullRequest, error) {
+	if data.GitRepository.Organisation == "" {
+		data.GitRepository.Organisation = data.GitRepository.Project
+	}
 	var bPullRequest, bPR bitbucket.PullRequest
 	var options = map[string]interface{}{
 		"title":       data.Title,
@@ -370,7 +373,7 @@ func (b *BitbucketServerProvider) CreatePullRequest(data *GitPullRequestArgument
 			"repository": map[string]interface{}{
 				"slug": data.GitRepository.Name,
 				"project": map[string]interface{}{
-					"key": data.GitRepository.Project,
+					"key": strings.ToUpper(data.GitRepository.Organisation),
 				},
 			},
 		},
@@ -379,7 +382,7 @@ func (b *BitbucketServerProvider) CreatePullRequest(data *GitPullRequestArgument
 			"repository": map[string]interface{}{
 				"slug": data.GitRepository.Name,
 				"project": map[string]interface{}{
-					"key": data.GitRepository.Project,
+					"key": strings.ToUpper(data.GitRepository.Organisation),
 				},
 			},
 		},
@@ -390,7 +393,7 @@ func (b *BitbucketServerProvider) CreatePullRequest(data *GitPullRequestArgument
 		return nil, err
 	}
 
-	apiResponse, err := b.Client.DefaultApi.CreatePullRequestWithOptions(data.GitRepository.Project, data.GitRepository.Name, requestBody)
+	apiResponse, err := b.Client.DefaultApi.CreatePullRequestWithOptions(strings.ToUpper(data.GitRepository.Organisation), data.GitRepository.Name, requestBody)
 	if err != nil {
 		return nil, err
 	}
@@ -404,7 +407,7 @@ func (b *BitbucketServerProvider) CreatePullRequest(data *GitPullRequestArgument
 	for i := 0; i < 30; i++ {
 		time.Sleep(2 * time.Second)
 
-		apiResponse, err = b.Client.DefaultApi.GetPullRequest(data.GitRepository.Project, data.GitRepository.Name, bPullRequest.ID)
+		apiResponse, err = b.Client.DefaultApi.GetPullRequest(strings.ToUpper(data.GitRepository.Project), data.GitRepository.Name, bPullRequest.ID)
 		if err == nil {
 			break
 		}
@@ -424,6 +427,7 @@ func (b *BitbucketServerProvider) CreatePullRequest(data *GitPullRequestArgument
 		Repo:   bPR.ToRef.Repository.Name,
 		Number: &bPR.ID,
 		State:  &bPR.State,
+		Title:  bPR.Title,
 	}, nil
 }
 
@@ -469,10 +473,17 @@ func getMergeCommitSHAFromPRActivity(prActivity map[string]interface{}) *string 
 	var activity []map[string]interface{}
 	var mergeCommit map[string]interface{}
 
-	mapstructure.Decode(prActivity["values"], &activity)     //nolint:errcheck
-	mapstructure.Decode(activity[0]["commit"], &mergeCommit) //nolint:errcheck
-	commitSHA := mergeCommit["id"].(string)
-
+	mapstructure.Decode(prActivity["values"], &activity) //nolint:errcheck
+	for _, act := range activity {
+		if act["action"] == "MERGED" {
+			mapstructure.Decode(act["commit"], &mergeCommit) //nolint:errcheck
+			break
+		}
+	}
+	commitSHA := ""
+	if _, ok := mergeCommit["id"]; ok {
+		commitSHA = mergeCommit["id"].(string)
+	}
 	return &commitSHA
 }
 
@@ -488,7 +499,6 @@ func getLastCommitFromPRCommits(prCommits map[string]interface{}) *bitbucket.Com
 
 func (b *BitbucketServerProvider) UpdatePullRequestStatus(pr *GitPullRequest) error {
 	var bitbucketPR bitbucket.PullRequest
-	var prCommits, prActivity map[string]interface{}
 
 	prID := *pr.Number
 	projectKey, repo := parseBitBucketServerURL(pr.URL)
@@ -502,47 +512,17 @@ func (b *BitbucketServerProvider) UpdatePullRequestStatus(pr *GitPullRequest) er
 		return err
 	}
 
-	pr.State = &bitbucketPR.State
-	pr.Title = bitbucketPR.Title
-	pr.Body = bitbucketPR.Description
-	pr.Author = &GitUser{
-		Login: bitbucketPR.Author.User.Name,
-	}
-
-	if bitbucketPR.State == "MERGED" {
-		merged := true
-		pr.Merged = &merged
-		apiResponse, err := b.Client.DefaultApi.GetPullRequestActivity(projectKey, repo, prID)
-		if err != nil {
-			return err
-		}
-
-		err = mapstructure.Decode(apiResponse.Values, &prActivity)
-		if err != nil {
-			return err
-		}
-		pr.MergeCommitSHA = getMergeCommitSHAFromPRActivity(prActivity)
-	}
-	diffURL := bitbucketPR.Links.Self[0].Href + "/diff"
-	pr.DiffURL = &diffURL
-
-	apiResponse, err = b.Client.DefaultApi.GetPullRequestCommits(projectKey, repo, prID)
+	err = b.populatePullRequest(pr, &bitbucketPR)
 	if err != nil {
 		return err
 	}
-	err = mapstructure.Decode(apiResponse.Values, &prCommits)
-	if err != nil {
-		return err
-	}
-	pr.LastCommitSha = getLastCommitSHAFromPRCommits(prCommits)
-
 	return nil
 }
 
 func (b *BitbucketServerProvider) GetPullRequest(owner string, repo *GitRepository, number int) (*GitPullRequest, error) {
-	var bPR bitbucket.PullRequest
+	var bPR *bitbucket.PullRequest
 
-	apiResponse, err := b.Client.DefaultApi.GetPullRequest(repo.Project, repo.Name, number)
+	apiResponse, err := b.Client.DefaultApi.GetPullRequest(strings.ToUpper(owner), repo.Name, number)
 	if err != nil {
 		return nil, err
 	}
@@ -552,27 +532,64 @@ func (b *BitbucketServerProvider) GetPullRequest(owner string, repo *GitReposito
 		return nil, err
 	}
 
-	answer := b.toPullRequest(bPR)
+	return b.toPullRequest(bPR)
+}
+
+func (b *BitbucketServerProvider) toPullRequest(bPR *bitbucket.PullRequest) (*GitPullRequest, error) {
+	answer := &GitPullRequest{}
+
+	err := b.populatePullRequest(answer, bPR)
+	if err != nil {
+		return nil, err
+	}
 	return answer, nil
 }
 
-func (b *BitbucketServerProvider) toPullRequest(bPR bitbucket.PullRequest) *GitPullRequest {
+func (b *BitbucketServerProvider) populatePullRequest(answer *GitPullRequest, bPR *bitbucket.PullRequest) error {
+	var prCommits, prActivity map[string]interface{}
 	author := &GitUser{
 		URL:   bPR.Author.User.Links.Self[0].Href,
 		Login: bPR.Author.User.Slug,
 		Name:  bPR.Author.User.Name,
 		Email: bPR.Author.User.EmailAddress,
 	}
-	answer := &GitPullRequest{
-		URL:           bPR.Links.Self[0].Href,
-		Owner:         bPR.Author.User.Name,
-		Repo:          bPR.ToRef.Repository.Name,
-		Number:        &bPR.ID,
-		State:         &bPR.State,
-		Author:        author,
-		LastCommitSha: bPR.FromRef.LatestCommit,
+	answer.URL = bPR.Links.Self[0].Href
+	answer.Owner = bPR.ToRef.Repository.Project.Key
+	answer.Repo = bPR.ToRef.Repository.Name
+	answer.Number = &bPR.ID
+	answer.State = &bPR.State
+	answer.Author = author
+	answer.LastCommitSha = bPR.FromRef.LatestCommit
+	answer.Title = bPR.Title
+	answer.Body = bPR.Description
+
+	if bPR.State == "MERGED" {
+		merged := true
+		answer.Merged = &merged
+		apiResponse, err := b.Client.DefaultApi.GetPullRequestActivity(answer.Owner, answer.Repo, *answer.Number)
+		if err != nil {
+			return err
+		}
+
+		err = mapstructure.Decode(apiResponse.Values, &prActivity)
+		if err != nil {
+			return err
+		}
+		answer.MergeCommitSHA = getMergeCommitSHAFromPRActivity(prActivity)
 	}
-	return answer
+	diffURL := bPR.Links.Self[0].Href + "/diff"
+	answer.DiffURL = &diffURL
+
+	apiResponse, err := b.Client.DefaultApi.GetPullRequestCommits(answer.Owner, answer.Repo, *answer.Number)
+	if err != nil {
+		return err
+	}
+	err = mapstructure.Decode(apiResponse.Values, &prCommits)
+	if err != nil {
+		return err
+	}
+	answer.LastCommitSha = getLastCommitSHAFromPRCommits(prCommits)
+	return nil
 }
 
 // ListOpenPullRequests lists the open pull requests
@@ -602,7 +619,12 @@ func (b *BitbucketServerProvider) ListOpenPullRequests(owner string, repo string
 		}
 
 		for _, pr := range pullRequests.Values {
-			answer = append(answer, b.toPullRequest(pr))
+			p := pr
+			actualPR, err := b.toPullRequest(&p)
+			if err != nil {
+				return nil, err
+			}
+			answer = append(answer, actualPR)
 		}
 
 		if pullRequests.IsLastPage {
@@ -658,7 +680,7 @@ func (b *BitbucketServerProvider) GetPullRequestCommits(owner string, repository
 	paginationOptions["start"] = 0
 	paginationOptions["limit"] = pageLimit
 	for {
-		apiResponse, err := b.Client.DefaultApi.GetPullRequestCommitsWithOptions(repository.Project, repository.Name, number, paginationOptions)
+		apiResponse, err := b.Client.DefaultApi.GetPullRequestCommitsWithOptions(strings.ToUpper(owner), repository.Name, number, paginationOptions)
 		if err != nil {
 			return nil, err
 		}
@@ -845,7 +867,7 @@ func (b *BitbucketServerProvider) CreateWebHook(data *GitWebHookArguments) error
 		"url":    data.URL,
 		"name":   "Jenkins X Web Hook",
 		"active": true,
-		"events": []string{"repo:refs_changed", "repo:modified", "repo:forked", "repo:comment:added", "repo:comment:edited", "repo:comment:deleted", "pr:opened", "pr:reviewer:approved", "pr:reviewer:unapproved", "pr:reviewer:needs_work", "pr:merged", "pr:declined", "pr:deleted", "pr:comment:added", "pr:comment:edited", "pr:comment:deleted"},
+		"events": []string{"repo:refs_changed", "repo:modified", "repo:forked", "repo:comment:added", "repo:comment:edited", "repo:comment:deleted", "pr:opened", "pr:reviewer:approved", "pr:reviewer:unapproved", "pr:reviewer:needs_work", "pr:merged", "pr:declined", "pr:deleted", "pr:comment:added", "pr:comment:edited", "pr:comment:deleted", "pr:from_ref_updated", "pr:modified"},
 	}
 
 	if data.Secret != "" {
@@ -1128,8 +1150,11 @@ func (b *BitbucketServerProvider) GetRelease(org string, name string, tag string
 }
 
 func (b *BitbucketServerProvider) AddCollaborator(user string, organisation string, repo string) error {
-	log.Logger().Infof("Automatically adding the pipeline user as a collaborator is currently not implemented for bitbucket. Please add user: %v as a collaborator to this project.", user)
-	return nil
+	options := make(map[string]interface{})
+	options["name"] = user
+	options["permission"] = "REPO_WRITE"
+	_, err := b.Client.DefaultApi.SetPermissionForUser(organisation, repo, options)
+	return err
 }
 
 func (b *BitbucketServerProvider) ListInvitations() ([]*github.RepositoryInvitation, *github.Response, error) {
@@ -1163,8 +1188,33 @@ func BitBucketServerAccessTokenURL(url string) string {
 }
 
 // ListCommits lists the commits for the specified repo and owner
-func (b *BitbucketServerProvider) ListCommits(owner, repo string, opt *ListCommitsArguments) ([]*GitCommit, error) {
-	return nil, fmt.Errorf("Listing commits not supported on bitbucket")
+func (b *BitbucketServerProvider) ListCommits(owner, repoName string, opt *ListCommitsArguments) ([]*GitCommit, error) {
+	options := make(map[string]interface{})
+	options["limit"] = pageLimit
+	options["start"] = 0
+	options["until"] = opt.SHA
+	var commitsPage commitsPage
+	commits := []*GitCommit{}
+
+	repo, err := b.GetRepository(owner, repoName)
+	if err != nil {
+		return nil, err
+	}
+	apiResponse, err := b.Client.DefaultApi.GetCommits(strings.ToUpper(owner), repo.Name, options)
+	if err != nil {
+		return nil, err
+	}
+
+	err = mapstructure.Decode(apiResponse.Values, &commitsPage)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, commit := range commitsPage.Values {
+		commits = append(commits, convertBitBucketCommitToGitCommit(&commit, repo))
+	}
+
+	return commits, nil
 }
 
 // AddLabelsToIssue adds labels to issues or pullrequests
