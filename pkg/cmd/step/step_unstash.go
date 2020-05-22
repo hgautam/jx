@@ -1,23 +1,25 @@
 package step
 
 import (
+	"fmt"
 	"io/ioutil"
+	"net/http"
 	"net/url"
 	"path/filepath"
 	"strings"
 	"time"
 
-	"github.com/jenkins-x/jx/pkg/cmd/opts/step"
+	"github.com/jenkins-x/jx/v2/pkg/cmd/opts/step"
 
-	"github.com/jenkins-x/jx/pkg/cmd/helper"
+	"github.com/jenkins-x/jx/v2/pkg/cmd/helper"
 
-	"github.com/jenkins-x/jx/pkg/auth"
-	"github.com/jenkins-x/jx/pkg/cloud/buckets"
-	"github.com/jenkins-x/jx/pkg/cmd/opts"
-	"github.com/jenkins-x/jx/pkg/cmd/templates"
-	"github.com/jenkins-x/jx/pkg/gits"
-	"github.com/jenkins-x/jx/pkg/log"
-	"github.com/jenkins-x/jx/pkg/util"
+	"github.com/jenkins-x/jx/v2/pkg/auth"
+	"github.com/jenkins-x/jx/v2/pkg/cloud/buckets"
+	"github.com/jenkins-x/jx/v2/pkg/cmd/opts"
+	"github.com/jenkins-x/jx/v2/pkg/cmd/templates"
+	"github.com/jenkins-x/jx/v2/pkg/gits"
+	"github.com/jenkins-x/jx/v2/pkg/log"
+	"github.com/jenkins-x/jx/v2/pkg/util"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 )
@@ -120,45 +122,59 @@ func Unstash(u string, outDir string, timeout time.Duration, authSvc auth.Config
 	return nil
 }
 
-// CreateBucketHTTPFn creates a function to transform a git URL to add the token for accessing a git based bucket
-func CreateBucketHTTPFn(authSvc auth.ConfigService) func(string) (string, error) {
-	return func(urlText string) (string, error) {
+// CreateBucketHTTPFn creates a function to transform a git URL to add the token and possible header function for accessing a git based bucket
+func CreateBucketHTTPFn(authSvc auth.ConfigService) func(string) (string, func(*http.Request), error) {
+	return func(urlText string) (string, func(*http.Request), error) {
+		headerFunc := func(*http.Request) {
+			return
+		}
 		if authSvc != nil {
-			token, err := GetTokenForGitURL(authSvc, urlText)
+			gitInfo, err := gits.ParseGitURL(urlText)
 			if err != nil {
 				log.Logger().Warnf("Could not find the git token to access urlText %s due to: %s", urlText, err)
-			} else if token != "" {
+			}
+			gitServerURL := gitInfo.HostURL()
+			gitKind := ""
+			gitServer := authSvc.Config().GetServer(gitServerURL)
+			if gitServer != nil {
+				gitKind = gitServer.Kind
+			}
+			tokenPrefix := ""
+			auths := authSvc.Config().FindUserAuths(gitServerURL)
+			for _, a := range auths {
+				if a.ApiToken != "" {
+					if gitKind == gits.KindBitBucketServer {
+						tokenPrefix = fmt.Sprintf("%s:%s", a.Username, a.ApiToken)
+					} else if gitKind == gits.KindGitlab {
+						headerFunc = func(r *http.Request) {
+							r.Header.Set("PRIVATE-TOKEN", a.ApiToken)
+						}
+					} else if gitKind == gits.KindGitHub && !gitInfo.IsGitHub() {
+						// If we're on GitHub Enterprise, we need to put the token as a parameter to the URL.
+						tokenPrefix = a.ApiToken
+					} else {
+						tokenPrefix = a.ApiToken
+					}
+					break
+				}
+			}
+			if gitServerURL == "https://raw.githubusercontent.com" {
+				auths := authSvc.Config().FindUserAuths(gits.GitHubURL)
+				for _, a := range auths {
+					if a.ApiToken != "" {
+						tokenPrefix = a.ApiToken
+						break
+					}
+				}
+			}
+			if tokenPrefix != "" {
 				idx := strings.Index(urlText, "://")
 				if idx > 0 {
 					idx += 3
-					urlText = urlText[0:idx] + token + "@" + urlText[idx:]
+					urlText = urlText[0:idx] + tokenPrefix + "@" + urlText[idx:]
 				}
 			}
 		}
-		return urlText, nil
+		return urlText, headerFunc, nil
 	}
-}
-
-// GetTokenForGitURL returns the git token for the given git URL
-func GetTokenForGitURL(authSvc auth.ConfigService, u string) (string, error) {
-	gitInfo, err := gits.ParseGitURL(u)
-	if err != nil {
-		return "", err
-	}
-	gitServerURL := gitInfo.HostURL()
-	auths := authSvc.Config().FindUserAuths(gitServerURL)
-	for _, auth := range auths {
-		if auth.ApiToken != "" {
-			return auth.ApiToken, nil
-		}
-	}
-	if gitServerURL == "https://raw.githubusercontent.com" {
-		auths := authSvc.Config().FindUserAuths(gits.GitHubURL)
-		for _, auth := range auths {
-			if auth.ApiToken != "" {
-				return auth.ApiToken, nil
-			}
-		}
-	}
-	return "", nil
 }

@@ -8,9 +8,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/jenkins-x/jx/pkg/gits"
-	"github.com/jenkins-x/jx/pkg/log"
-	"github.com/jenkins-x/jx/pkg/util"
+	"github.com/jenkins-x/jx/v2/pkg/gits"
+	"github.com/jenkins-x/jx/v2/pkg/log"
+	"github.com/jenkins-x/jx/v2/pkg/util"
 	"github.com/pkg/errors"
 )
 
@@ -162,12 +162,16 @@ func (c *GitCollector) CollectData(data []byte, outputPath string) (string, erro
 }
 
 func (c *GitCollector) generateURL(storageOrg string, storageRepoName string, rPath string) (url string) {
-	if !c.gitInfo.IsGitHub() && gits.SaasGitKind(c.gitInfo.Host) == gits.KindGitHub {
-		url = fmt.Sprintf("https://raw.%s/%s/%s/%s/%s", c.gitInfo.Host, storageOrg, storageRepoName, c.gitBranch, rPath)
+	if !c.gitInfo.IsGitHub() && c.gitKind == gits.KindGitHub {
+		url = fmt.Sprintf("https://%s/raw/%s/%s/%s/%s", c.gitInfo.Host, storageOrg, storageRepoName, c.gitBranch, rPath)
 	} else {
 		switch c.gitKind {
 		case gits.KindGitlab:
-			url = fmt.Sprintf("https://%s/%s/%s/-/raw/%s/%s", c.gitInfo.Host, storageOrg, storageRepoName, c.gitBranch, rPath)
+			url = fmt.Sprintf("https://%s/api/v4/projects/%s/repository/files/%s/raw?ref=%s",
+				c.gitInfo.Host,
+				neturl.PathEscape(fmt.Sprintf("%s/%s", storageOrg, storageRepoName)),
+				neturl.PathEscape(rPath),
+				neturl.QueryEscape(c.gitBranch))
 		case gits.KindBitBucketServer:
 			url = fmt.Sprintf("https://%s/projects/%s/repos/%s/raw/%s?at=%s", c.gitInfo.Host, storageOrg, storageRepoName, rPath, neturl.QueryEscape(fmt.Sprintf("refs/heads/%s", c.gitBranch)))
 		default:

@@ -5,8 +5,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/jenkins-x/jx/cmd/codegen/generator"
-	"github.com/jenkins-x/jx/cmd/codegen/util"
+	"github.com/jenkins-x/jx/v2/cmd/codegen/generator"
+	"github.com/jenkins-x/jx/v2/cmd/codegen/util"
 
 	"github.com/pkg/errors"
 
@@ -25,15 +25,15 @@ var (
 	createClientGoExample = `
 # lets generate a client
 codegen clientset
-	--output-package=github.com/jenkins-x/jx/pkg/client \
+	--output-package=github.com/jenkins-x/jx/v2/pkg/client \
 	--input-package=github.com/jenkins-x/pkg-apis \
 	--group-with-version=jenkins.io:v1
 
 # You will normally want to add a target to your Makefile that looks like
 generate-clients:
 	codegen clientset
-		--output-package=github.com/jenkins-x/jx/pkg/client \
-		--input-package=github.com/jenkins-x/jx/pkg/apis \
+		--output-package=github.com/jenkins-x/jx/v2/pkg/client \
+		--input-package=github.com/jenkins-x/jx/v2/pkg/apis \
 		--group-with-version=jenkins.io:v1
 
 # and then call
@@ -84,6 +84,7 @@ func NewGenerateClientSetCmd(genOpts GenerateOptions) *cobra.Command {
 	cobraCmd.Flags().StringVarP(&o.OutputPackage, optionOutputPackage, "o", "", "Output package, must specify")
 	cobraCmd.Flags().StringVarP(&o.InputBase, optionInputBase, "", wd, "Input base, defaults working directory")
 	cobraCmd.Flags().BoolVarP(&o.Global, global, "", false, "use the users GOPATH")
+	cobraCmd.Flags().StringVarP(&o.SemVer, optionSemVer, "", "", "semantic version to use in packages")
 	return cobraCmd
 }
 
@@ -109,18 +110,25 @@ func (o *ClientSetGenerationOptions) Run() error {
 		return errors.Wrapf(err, "ensure GOPATH is set correctly")
 	}
 
+	cleanupFunc := func() {}
 	gopath := util.GoPath()
 	if !o.Global {
 		gopath, err = util.IsolatedGoPath()
 		if err != nil {
 			return errors.Wrapf(err, "getting isolated gopath")
 		}
+		cleanupFunc, err = util.BackupGoModAndGoSum()
+		if err != nil {
+			return errors.Wrapf(err, "backing up go.mod and go.sum")
+		}
 	}
+	defer cleanupFunc()
+
 	err = generator.InstallCodeGenerators(o.GeneratorVersion, gopath)
 	if err != nil {
 		return errors.Wrapf(err, "installing kubernetes code generator tools")
 	}
 	util.AppLogger().Infof("generating Go code to %s in package %s from package %s\n", o.OutputBase, o.GoPathOutputPackage, o.GoPathInputPackage)
-	return generator.GenerateClient(o.Generators, o.GroupsWithVersions, o.GoPathInputPackage, o.GoPathOutputPackage,
-		filepath.Join(build.Default.GOPATH, "src"), o.BoilerplateFile, gopath)
+	return generator.GenerateClient(o.Generators, o.GroupsWithVersions, o.GoPathInputPackage, o.GoPathOutputPackage, o.OutputPackage,
+		filepath.Join(build.Default.GOPATH, "src"), o.BoilerplateFile, gopath, o.SemVer)
 }

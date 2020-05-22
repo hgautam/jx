@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/jenkins-x/jx/cmd/codegen/generator"
-	"github.com/jenkins-x/jx/cmd/codegen/util"
+	"github.com/jenkins-x/jx/v2/cmd/codegen/generator"
+	"github.com/jenkins-x/jx/v2/cmd/codegen/util"
 
 	"github.com/pkg/errors"
 
@@ -33,7 +33,7 @@ the specified custom resources.
 	createClientOpenAPIExample = `
 # lets generate client docs
 codegen openapi
-	--output-package=github.com/jenkins-x/jx/pkg/client \
+	--output-package=github.com/jenkins-x/jx/v2/pkg/client \
 	--input-package=github.com/jenkins-x/pkg-apis \
 	--group-with-version=jenkins.io:v1
 	--version=1.2.3
@@ -42,8 +42,8 @@ codegen openapi
 # You will normally want to add a target to your Makefile that looks like
 generate-openapi:
 	codegen openapi
-		--output-package=github.com/jenkins-x/jx/pkg/client \
-		--input-package=github.com/jenkins-x/jx/pkg/apis \
+		--output-package=github.com/jenkins-x/jx/v2/pkg/client \
+		--input-package=github.com/jenkins-x/jx/v2/pkg/apis \
 		--group-with-version=jenkins.io:v1
 		--version=${VERSION}
 		--title=${TITLE}
@@ -111,6 +111,7 @@ func NewCmdCreateClientOpenAPI(genOpts GenerateOptions) *cobra.Command {
 	cobraCmd.Flags().StringVarP(&o.ModuleName, optionModuleName, "", moduleName,
 		"module name (e.g. github.com/jenkins-x/jx)")
 	cobraCmd.Flags().BoolVarP(&o.Global, global, "", false, "use the users GOPATH")
+	cobraCmd.Flags().StringVarP(&o.SemVer, optionSemVer, "", "", "semantic version to use in packages")
 	return cobraCmd
 }
 
@@ -137,13 +138,22 @@ func (o *CreateClientOpenAPIOptions) Run() error {
 		return util.InvalidOptionf(optionGroupWithVersion, o.GroupsWithVersions, "must specify at least once")
 	}
 
+	cleanupFunc := func() {}
+
 	gopath := util.GoPath()
 	if !o.Global {
 		gopath, err = util.IsolatedGoPath()
 		if err != nil {
 			return errors.Wrapf(err, "getting isolated gopath")
 		}
+		cleanupFunc, err = util.BackupGoModAndGoSum()
+		if err != nil {
+			return errors.Wrapf(err, "backing up go.mod and go.sum")
+		}
 	}
+
+	defer cleanupFunc()
+
 	err = generator.InstallOpenApiGen(o.GeneratorVersion, gopath)
 	if err != nil {
 		return errors.Wrapf(err, "error installing kubernetes openapi tools")
@@ -155,7 +165,7 @@ func (o *CreateClientOpenAPIOptions) Run() error {
 
 	util.AppLogger().Infof("generating Go code to %s in package %s from package %s\n", o.OutputBase, o.GoPathOutputPackage, o.InputPackage)
 	err = generator.GenerateOpenApi(o.GroupsWithVersions, o.InputPackage, o.GoPathOutputPackage, o.OutputPackage,
-		filepath.Join(build.Default.GOPATH, "src"), o.OpenAPIDependencies, o.InputBase, o.ModuleName, o.BoilerplateFile, gopath)
+		filepath.Join(build.Default.GOPATH, "src"), o.OpenAPIDependencies, o.InputBase, o.ModuleName, o.BoilerplateFile, gopath, o.SemVer)
 	if err != nil {
 		return errors.Wrapf(err, "generating openapi structs to %s", o.GoPathOutputPackage)
 	}
