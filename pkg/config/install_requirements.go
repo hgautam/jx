@@ -32,6 +32,11 @@ var (
 )
 
 const (
+	// DefaultFailOnValidationError by default fail if validation fails when reading jx-requirements
+	DefaultFailOnValidationError = true
+)
+
+const (
 	// RequirementsConfigFileName is the name of the requirements configuration file
 	RequirementsConfigFileName = "jx-requirements.yml"
 	// RequirementsValuesFileName is the name of the requirements configuration file
@@ -241,6 +246,22 @@ type IngressConfig struct {
 	TLS TLSConfig `json:"tls"`
 	// DomainIssuerURL contains a URL used to retrieve a Domain
 	DomainIssuerURL string `json:"domainIssuerURL,omitempty"`
+}
+
+// BuildPackConfig contains build pack info
+type BuildPackConfig struct {
+	// Location contains location config
+	BuildPackLibrary *BuildPackLibrary `json:"buildPackLibrary,omitempty"`
+}
+
+// BuildPackLibrary contains buildpack location
+type BuildPackLibrary struct {
+	// Name
+	Name string `json:"name,omitempty"`
+	// GitURL
+	GitURL string `json:"gitURL,omitempty"`
+	// GitRef
+	GitRef string `json:"gitRef,omitempty"`
 }
 
 // TLSConfig contains TLS specific requirements
@@ -473,6 +494,8 @@ type RequirementsConfig struct {
 	AutoUpdate AutoUpdateConfig `json:"autoUpdate,omitempty"`
 	// BootConfigURL contains the url to which the dev environment is associated with
 	BootConfigURL string `json:"bootConfigURL,omitempty"`
+	// BuildPackConfig contains custom build pack settings
+	BuildPacks *BuildPackConfig `json:"buildPacks,omitempty"`
 	// Cluster contains cluster specific requirements
 	Cluster ClusterConfig `json:"cluster"`
 	// Environments the requirements for the environments
@@ -518,7 +541,7 @@ func NewRequirementsConfig() *RequirementsConfig {
 // LoadRequirementsConfig loads the project configuration if there is a project configuration file
 // if there is not a file called `jx-requirements.yml` in the given dir we will scan up the parent
 // directories looking for the requirements file as we often run 'jx' steps in sub directories.
-func LoadRequirementsConfig(dir string) (*RequirementsConfig, string, error) {
+func LoadRequirementsConfig(dir string, failOnValidationErrors bool) (*RequirementsConfig, string, error) {
 	absolute, err := filepath.Abs(dir)
 	if err != nil {
 		return nil, "", errors.Wrap(err, "creating absolute path")
@@ -536,14 +559,14 @@ func LoadRequirementsConfig(dir string) (*RequirementsConfig, string, error) {
 			continue
 		}
 
-		config, err := LoadRequirementsConfigFile(fileName)
+		config, err := LoadRequirementsConfigFile(fileName, failOnValidationErrors)
 		return config, fileName, err
 	}
 	return nil, "", errors.New("jx-requirements.yml file not found")
 }
 
 // LoadRequirementsConfigFile loads a specific project YAML configuration file
-func LoadRequirementsConfigFile(fileName string) (*RequirementsConfig, error) {
+func LoadRequirementsConfigFile(fileName string, failOnValidationErrors bool) (*RequirementsConfig, error) {
 	config := &RequirementsConfig{}
 	_, err := os.Stat(fileName)
 	if err != nil {
@@ -561,7 +584,11 @@ func LoadRequirementsConfigFile(fileName string) (*RequirementsConfig, error) {
 	}
 
 	if len(validationErrors) > 0 {
-		return nil, fmt.Errorf("validation failures in YAML file %s:\n%s", fileName, strings.Join(validationErrors, "\n"))
+		log.Logger().Warnf("validation failures in YAML file %s: %s", fileName, strings.Join(validationErrors, ", "))
+
+		if failOnValidationErrors {
+			return nil, fmt.Errorf("validation failures in YAML file %s:\n%s", fileName, strings.Join(validationErrors, "\n"))
+		}
 	}
 
 	err = yaml.Unmarshal(data, config)
