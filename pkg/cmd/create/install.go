@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/jenkins-x/jx/v2/pkg/cmd/opts/upgrade"
-
+	"github.com/jenkins-x/jx/v2/pkg/errorutil"
 	"github.com/jenkins-x/jx/v2/pkg/vault/create"
 
 	createoptions "github.com/jenkins-x/jx/v2/pkg/cmd/create/options"
@@ -1865,7 +1865,7 @@ func (options *InstallOptions) setupGitOpsPostApply(ns string) error {
 			}
 			log.Logger().Infof("Registered environment %s", util.ColorInfo(env.GetName()))
 		}
-		return util.CombineErrors(errs...)
+		return errorutil.CombineErrors(errs...)
 	}
 	return nil
 }
@@ -2231,7 +2231,7 @@ func (options *InstallOptions) createSystemVault(client kubernetes.Interface, na
 			return errors.Wrap(err, "building the system vault name from cluster name")
 		}
 
-		options.installValues[kube.SystemVaultName] = systemVaultName
+		options.installValues[vault.SystemVaultName] = systemVaultName
 
 		if kubevault.FindVault(vaultOperatorClient, systemVaultName, namespace) {
 			log.Logger().Infof("System vault named %s in namespace %s already exists",

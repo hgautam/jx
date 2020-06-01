@@ -47,14 +47,6 @@ const (
 	defaultInternalVaultURL = "http://%s:" + vault.DefaultVaultPort
 )
 
-// Vault stores some details of a Vault resource
-type Vault struct {
-	Name                   string
-	Namespace              string
-	URL                    string
-	AuthServiceAccountName string
-}
-
 // GCPConfig keeps the configuration for Google Cloud
 type GCPConfig struct {
 	ProjectId   string
@@ -148,7 +140,7 @@ type SecretEngine struct {
 // Seal configuration for Vault auto-unseal
 type Seal struct {
 	GcpCkms *GCPSealConfig `json:"gcpckms,omitempty"`
-	AWSKms  *AWSSealConig  `json:"awskms,omitempty"`
+	AWSKms  *AWSSealConfig `json:"awskms,omitempty"`
 }
 
 // GCPSealConfig Google Cloud KMS config for vault auto-unseal
@@ -160,8 +152,8 @@ type GCPSealConfig struct {
 	CryptoKey   string `json:"crypto_key,omitempty"`
 }
 
-// AWSSealConig AWS KMS config for vault auto-unseal
-type AWSSealConig struct {
+// AWSSealConfig AWS KMS config for vault auto-unseal
+type AWSSealConfig struct {
 	Region    string `json:"region,omitempty"`
 	AccessKey string `json:"access_key,omitempty"`
 	SecretKey string `json:"secret_key,omitempty"`
@@ -254,7 +246,7 @@ func PrepareAWSVaultCRD(awsServiceAccountSecretName string, awsConfig *AWSConfig
 	}
 
 	seal := Seal{
-		AWSKms: &AWSSealConig{
+		AWSKms: &AWSSealConfig{
 			Region:    awsConfig.KMSRegion,
 			AccessKey: awsConfig.AccessKeyID,
 			SecretKey: awsConfig.SecretAccessKey,
@@ -436,13 +428,13 @@ func GetVault(vaultOperatorClient versioned.Interface, name string, ns string) (
 }
 
 // GetVaults returns all vaults available in a given namespaces
-func GetVaults(client kubernetes.Interface, vaultOperatorClient versioned.Interface, ns string, useIngressURL bool) ([]*Vault, error) {
+func GetVaults(client kubernetes.Interface, vaultOperatorClient versioned.Interface, ns string, useIngressURL bool) ([]*vault.Vault, error) {
 	vaultList, err := vaultOperatorClient.Vault().Vaults(ns).List(metav1.ListOptions{})
 	if err != nil {
 		return nil, errors.Wrapf(err, "listing vaults in namespace '%s'", ns)
 	}
 
-	vaults := []*Vault{}
+	vaults := []*vault.Vault{}
 	for _, v := range vaultList.Items {
 		vaultName := v.Name
 		vaultAuthSaName := GetAuthSaName(v)
@@ -458,11 +450,11 @@ func GetVaults(client kubernetes.Interface, vaultOperatorClient versioned.Interf
 			}
 		}
 
-		vault := Vault{
-			Name:                   vaultName,
-			Namespace:              ns,
-			URL:                    vaultURL,
-			AuthServiceAccountName: vaultAuthSaName,
+		vault := vault.Vault{
+			Name:               vaultName,
+			Namespace:          ns,
+			URL:                vaultURL,
+			ServiceAccountName: vaultAuthSaName,
 		}
 		vaults = append(vaults, &vault)
 	}
