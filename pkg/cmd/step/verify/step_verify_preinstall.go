@@ -798,8 +798,9 @@ func (o *StepVerifyPreInstallOptions) verifyStorage(requirements *config.Require
 func (o *StepVerifyPreInstallOptions) verifyTLS(requirements *config.RequirementsConfig) error {
 	if !requirements.Ingress.TLS.Enabled {
 		confirm := false
-		if requirements.SecretStorage == config.SecretStorageTypeVault {
-			log.Logger().Warnf("Vault is enabled and TLS is not enabled. This means your secrets will be sent to and from your cluster in the clear. See %s for more information", config.TLSDocURL)
+		// an existing Vault URL indicated an external Vault instance in which case the following warning is not necessary
+		if requirements.SecretStorage == config.SecretStorageTypeVault && requirements.Vault.URL == "" {
+			log.Logger().Warnf("Vault is enabled and TLS is not. This means your secrets will be sent to and from your cluster in the clear. See %s for more information", config.TLSDocURL)
 			confirm = true
 		}
 		if requirements.Webhook != config.WebhookTypeNone {
@@ -810,7 +811,6 @@ func (o *StepVerifyPreInstallOptions) verifyTLS(requirements *config.Requirement
 			confirm = false
 		}
 		if confirm && !o.BatchMode {
-
 			message := fmt.Sprintf("Do you wish to continue?")
 			help := fmt.Sprintf("Jenkins X needs TLS enabled to send secrets securely. We strongly recommend enabling TLS.")
 			if answer, err := util.Confirm(message, false, help, o.GetIOFileHandles()); err != nil {
@@ -819,7 +819,6 @@ func (o *StepVerifyPreInstallOptions) verifyTLS(requirements *config.Requirement
 				return errors.Errorf("cannot continue because TLS is not enabled.")
 			}
 		}
-
 	}
 	return nil
 }
@@ -1054,7 +1053,7 @@ func (o *StepVerifyPreInstallOptions) showProvideFeedbackMessage() (bool, error)
 }
 
 func (o *StepVerifyPreInstallOptions) showPermissionsModeMessage(requirementsConfig *config.RequirementsConfig) {
-	if requirementsConfig.Cluster.Provider != cloud.OPENSHIFT {
+	if requirementsConfig.Cluster.StrictPermissions && requirementsConfig.Cluster.Provider != cloud.OPENSHIFT {
 		log.Logger().Info(`The provided requirements file has 'strictPermissions' enabled but 'provider' is not Openshift.
 This feature is only supported on Openshift`)
 	}
