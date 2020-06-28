@@ -15,10 +15,10 @@ import (
 	"github.com/pkg/errors"
 	"github.com/vrischmann/envconfig"
 
+	"github.com/jenkins-x/jx-logging/pkg/log"
 	v1 "github.com/jenkins-x/jx/v2/pkg/apis/jenkins.io/v1"
 	"github.com/jenkins-x/jx/v2/pkg/cloud"
 	"github.com/jenkins-x/jx/v2/pkg/cloud/gke"
-	"github.com/jenkins-x/jx/v2/pkg/log"
 	"github.com/jenkins-x/jx/v2/pkg/util"
 )
 
@@ -699,10 +699,11 @@ func (t environmentsSliceTransformer) Transformer(typ reflect.Type) func(dst, sr
 			s := src.Interface().([]EnvironmentConfig)
 			if dst.CanSet() {
 				for i, v := range s {
+					value := v
 					if i > len(d)-1 {
-						d = append(d, v)
+						d = append(d, value)
 					} else {
-						err := mergo.Merge(&d[i], &v, mergo.WithOverride)
+						err := mergo.Merge(&d[i], &value, mergo.WithOverride)
 						if err != nil {
 							return errors.Wrap(err, "error merging EnvironmentConfig slices")
 						}
@@ -738,17 +739,18 @@ func (c *RequirementsConfig) MergeSave(src *RequirementsConfig, requirementsFile
 func (c *RequirementsConfig) EnvironmentMap() map[string]interface{} {
 	answer := map[string]interface{}{}
 	for _, env := range c.Environments {
-		k := env.Key
+		e := env
+		k := e.Key
 		if k == "" {
-			log.Logger().Warnf("missing 'key' for Environment requirements %#v", env)
+			log.Logger().Warnf("missing 'key' for Environment requirements %#v", e)
 			continue
 		}
-		m, err := util.ToObjectMap(&env)
+		m, err := util.ToObjectMap(&e)
 		if err == nil {
 			ensureHasFields(m, "owner", "repository", "gitServer", "gitKind")
 			answer[k] = m
 		} else {
-			log.Logger().Warnf("failed to turn environment %s with value %#v into a map: %s\n", k, env, err.Error())
+			log.Logger().Warnf("failed to turn environment %s with value %#v into a map: %s\n", k, e, err.Error())
 		}
 	}
 	return answer

@@ -8,11 +8,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jenkins-x/jx-logging/pkg/log"
 	v1 "github.com/jenkins-x/jx/v2/pkg/apis/jenkins.io/v1"
 	"github.com/jenkins-x/jx/v2/pkg/builds"
 	"github.com/jenkins-x/jx/v2/pkg/gits"
 	"github.com/jenkins-x/jx/v2/pkg/kube"
-	"github.com/jenkins-x/jx/v2/pkg/log"
 	"github.com/jenkins-x/jx/v2/pkg/tekton/syntax"
 	"github.com/jenkins-x/jx/v2/pkg/util"
 	"github.com/pkg/errors"
@@ -183,7 +183,8 @@ func CreatePipelineRunInfo(prName string, podList *corev1.PodList, ps *v1.Pipeli
 		pri.Context = pod.Labels[LabelContext]
 	}
 	containers, _, isInit := kube.GetContainersWithStatusAndIsInit(pod)
-	for _, container := range containers {
+	for _, c := range containers {
+		container := c
 		// We historically used the git source step automatically injected by Tekton to get the git URL and the sha or
 		// branch being built, but that is no longer going to always be accurate due to our bespoke git merge step
 		// handling checkout/merging of PR branches into the target branch.
@@ -485,11 +486,13 @@ func stageAndChildrenToStageInfo(psc *v1.PipelineStageAndChildren, parents []str
 	}
 
 	for _, s := range psc.Stages {
-		si.Stages = append(si.Stages, stageAndChildrenToStageInfo(&s, append(parents, psc.Stage.Name)))
+		stage := s
+		si.Stages = append(si.Stages, stageAndChildrenToStageInfo(&stage, append(parents, psc.Stage.Name)))
 	}
 
 	for _, s := range psc.Parallel {
-		si.Parallel = append(si.Parallel, stageAndChildrenToStageInfo(&s, append(parents, psc.Stage.Name)))
+		stage := s
+		si.Parallel = append(si.Parallel, stageAndChildrenToStageInfo(&stage, append(parents, psc.Stage.Name)))
 	}
 
 	return si

@@ -6,7 +6,7 @@ CODE_GEN_BUILDFLAGS := -gcflags "all=-N -l" $(CODE_GEN_BUILDFLAGS)
 endif
 
 PEGOMOCK_VERSION := v2.7.0
-CLIENTSET_GENERATOR_VERSION := kubernetes-1.12.9
+CLIENTSET_GENERATOR_VERSION := kubernetes-1.15.12
 GEN_APIDOCS_VERSION := v0.0.0-20190912061656-a61bc210ee54
 OPENAPI_GEN_VERSION := 36ebc4887cdc
 
@@ -66,7 +66,7 @@ generate-refdocs: generate-api-refdocs generate-config-refdocs
 generate-api-refdocs: install-refdocs
 	${GOPATH}/bin/gen-crd-api-reference-docs -config "docs/refdocs/config.json" \
 	-template-dir docs/refdocs/templates \
-    -api-dir "./pkg/apis/jenkins.io" \
+    -api-dir "./pkg/apis/jenkins.io/v1" \
     -out-file docs/apidocs.md
 
 generate-config-refdocs:

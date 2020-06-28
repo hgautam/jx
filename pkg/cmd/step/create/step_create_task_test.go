@@ -18,17 +18,17 @@ import (
 	"github.com/jenkins-x/jx/v2/pkg/versionstream"
 
 	"github.com/google/go-cmp/cmp/cmpopts"
+	"github.com/jenkins-x/jx-logging/pkg/log"
 	"github.com/jenkins-x/jx/v2/pkg/cmd/testhelpers"
 	gits_test "github.com/jenkins-x/jx/v2/pkg/gits/mocks"
 	helm_test "github.com/jenkins-x/jx/v2/pkg/helm/mocks"
 	"github.com/jenkins-x/jx/v2/pkg/kube"
-	"github.com/jenkins-x/jx/v2/pkg/log"
 	"github.com/jenkins-x/jx/v2/pkg/tekton"
 	"github.com/jenkins-x/jx/v2/pkg/tekton/syntax"
-	"github.com/knative/pkg/kmp"
 	uuid "github.com/satori/go.uuid"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/rand"
+	"knative.dev/pkg/kmp"
 
 	"github.com/ghodss/yaml"
 	"github.com/google/go-cmp/cmp"
@@ -519,7 +519,7 @@ func TestGenerateTektonCRDs(t *testing.T) {
 				NoKaniko:            tt.noKaniko,
 				StepOptions: step.StepOptions{
 					CommonOptions: &opts.CommonOptions{
-						ServiceAccount: "tekton-bot",
+						ServiceAccount: tekton.DefaultPipelineSA,
 					},
 				},
 				BuildNumber: "1",

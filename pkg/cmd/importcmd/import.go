@@ -15,6 +15,7 @@ import (
 	"github.com/cenkalti/backoff"
 	"github.com/denormal/go-gitignore"
 	gojenkins "github.com/jenkins-x/golang-jenkins"
+	"github.com/jenkins-x/jx-logging/pkg/log"
 	v1 "github.com/jenkins-x/jx/v2/pkg/apis/jenkins.io/v1"
 	"github.com/jenkins-x/jx/v2/pkg/auth"
 	"github.com/jenkins-x/jx/v2/pkg/cloud/amazon"
@@ -30,7 +31,6 @@ import (
 	"github.com/jenkins-x/jx/v2/pkg/jenkinsfile"
 	"github.com/jenkins-x/jx/v2/pkg/kube"
 	"github.com/jenkins-x/jx/v2/pkg/kube/naming"
-	"github.com/jenkins-x/jx/v2/pkg/log"
 	"github.com/jenkins-x/jx/v2/pkg/prow"
 	"github.com/jenkins-x/jx/v2/pkg/util"
 	"github.com/pkg/errors"
@@ -387,7 +387,6 @@ func (options *ImportOptions) Run() error {
 		if err != nil {
 			return err
 		}
-
 	}
 	err = options.fixDockerIgnoreFile()
 	if err != nil {
@@ -421,6 +420,11 @@ func (options *ImportOptions) Run() error {
 				return err
 			}
 			options.GetReporter().PushedGitRepository(options.RepoURL)
+		}
+
+		err = options.AddBotAsCollaborator()
+		if err != nil {
+			return err
 		}
 	}
 
@@ -707,68 +711,63 @@ func (options *ImportOptions) CreateNewRemoteRepository() error {
 	repoURL := repo.HTMLURL
 	options.GetReporter().PushedGitRepository(repoURL)
 
+	return options.AddBotAsCollaborator()
+}
+
+// AddBotAsCollaborator adds the pipeline bot as collaborator to the repository
+func (options *ImportOptions) AddBotAsCollaborator() error {
 	githubAppMode, err := options.IsGitHubAppMode()
 	if err != nil {
 		return err
 	}
 
 	if !githubAppMode {
-
 		// If the user creating the repo is not the pipeline user, add the pipeline user as a contributor to the repo
-		if options.PipelineUserName != options.GitUserAuth.Username && options.GitServer != nil && options.GitServer.URL == options.PipelineServer {
+		if options.PipelineUserName != options.GitUserAuth.Username && options.GitProvider.ServerURL() == options.PipelineServer {
 			// Make the invitation
-			err := options.GitProvider.AddCollaborator(options.PipelineUserName, details.Organisation, details.RepoName)
+			err := options.GitProvider.AddCollaborator(options.PipelineUserName, options.Organisation, options.AppName)
 			if err != nil {
 				return err
 			}
 
-			// If repo is put in an organisation that the pipeline user is not part of an invitation needs to be accepted.
-			// Create a new provider for the pipeline user
-			authConfig := authConfigSvc.Config()
+			authConfigSvc, err := options.GitAuthConfigService()
 			if err != nil {
 				return err
 			}
-			pipelineUserAuth := authConfig.FindUserAuth(options.GitServer.URL, options.PipelineUserName)
-			if pipelineUserAuth == nil {
-				log.Logger().Warnf("Pipeline Git user credentials not found. %s will need to accept the invitation to collaborate"+
-					"on %s if %s is not part of %s.\n",
-					options.PipelineUserName, details.RepoName, options.PipelineUserName, details.Organisation)
-			} else {
-				pipelineServerAuth := authConfig.GetServer(authConfig.CurrentServer)
-				pipelineUserProvider, err := gits.CreateProvider(pipelineServerAuth, pipelineUserAuth, options.Git())
+
+			authConfig := authConfigSvc.Config()
+			pipelineServerAuth, pipelineUserAuth := authConfig.GetPipelineAuth()
+			pipelineUserProvider, err := gits.CreateProvider(pipelineServerAuth, pipelineUserAuth, options.Git())
+			if err != nil {
+				return err
+			}
+
+			// Get all invitations for the pipeline user
+			// Wrapped in retry to not immediately fail the quickstart creation if APIs are flaky.
+			f := func() error {
+				invites, _, err := pipelineUserProvider.ListInvitations()
 				if err != nil {
 					return err
 				}
-
-				// Get all invitations for the pipeline user
-				// Wrapped in retry to not immediately fail the quickstart creation if APIs are flaky.
-				f := func() error {
-					invites, _, err := pipelineUserProvider.ListInvitations()
+				for _, x := range invites {
+					// Accept all invitations for the pipeline user
+					_, err = pipelineUserProvider.AcceptInvitation(*x.ID)
 					if err != nil {
 						return err
 					}
-					for _, x := range invites {
-						// Accept all invitations for the pipeline user
-						_, err = pipelineUserProvider.AcceptInvitation(*x.ID)
-						if err != nil {
-							return err
-						}
-					}
-					return nil
 				}
-				exponentialBackOff := backoff.NewExponentialBackOff()
-				timeout := 20 * time.Second
-				exponentialBackOff.MaxElapsedTime = timeout
-				exponentialBackOff.Reset()
-				err = backoff.Retry(f, exponentialBackOff)
-				if err != nil {
-					return err
-				}
+				return nil
 			}
-
+			exponentialBackOff := backoff.NewExponentialBackOff()
+			timeout := 20 * time.Second
+			exponentialBackOff.MaxElapsedTime = timeout
+			exponentialBackOff.Reset()
+			err = backoff.Retry(f, exponentialBackOff)
+			if err != nil {
+				return err
+			}
 		}
 	}
-
 	return nil
 }
 
@@ -1280,7 +1279,7 @@ func replacePlaceholdersInFile(replacer *strings.Replacer, file string) error {
 	lines := string(input)
 	if strings.Contains(lines, util.PlaceHolderPrefix) { // Avoid unnecessarily rewriting files
 		output := replacer.Replace(lines)
-		err = ioutil.WriteFile(file, []byte(output), 0644)
+		err = ioutil.WriteFile(file, []byte(output), 0600)
 		if err != nil {
 			log.Logger().Errorf("failed to write file %s: %v", file, err)
 			return err
@@ -1327,7 +1326,7 @@ func (options *ImportOptions) addAppNameToGeneratedFile(filename, field, value s
 		}
 	}
 	output := strings.Join(lines, "\n")
-	err = ioutil.WriteFile(file, []byte(output), 0644)
+	err = ioutil.WriteFile(file, []byte(output), 0600)
 	if err != nil {
 		return err
 	}
@@ -1403,7 +1402,19 @@ func (options *ImportOptions) renameChartToMatchAppName() error {
 		if exists && oldChartsDir != newChartsDir {
 			err = util.RenameDir(oldChartsDir, newChartsDir, false)
 			if err != nil {
-				return fmt.Errorf("error renaming %s to %s, %v", oldChartsDir, newChartsDir, err)
+				if os.IsExist(errors.Cause(err)) {
+					isChartDir, e := util.FileExists(filepath.Join(newChartsDir, "Chart.yaml"))
+					if e != nil {
+						return fmt.Errorf("error checking %s chart dir: %w", options.AppName, e)
+					}
+					if !isChartDir {
+						return fmt.Errorf("directory %s already exists but is not a helm chart", newChartsDir)
+					}
+					os.RemoveAll(oldChartsDir)
+					log.Logger().Warnf("Failed to apply the build pack in %s: %s", dir, err)
+				} else {
+					return fmt.Errorf("error renaming %s to %s, %v", oldChartsDir, newChartsDir, err)
+				}
 			}
 			_, err = os.Stat(newChartsDir)
 			if err != nil {
@@ -1462,7 +1473,7 @@ func (options *ImportOptions) CreateProwOwnersFile() error {
 		if err != nil {
 			return err
 		}
-		err = ioutil.WriteFile(filename, yaml, 0644)
+		err = ioutil.WriteFile(filename, yaml, 0600)
 		if err != nil {
 			return err
 		}
@@ -1495,7 +1506,7 @@ func (options *ImportOptions) CreateProwOwnersAliasesFile() error {
 		if err != nil {
 			return err
 		}
-		return ioutil.WriteFile(filename, yaml, 0644)
+		return ioutil.WriteFile(filename, yaml, 0600)
 	}
 	return errors.New("GitUserAuth.Username not set")
 }

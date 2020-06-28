@@ -10,12 +10,12 @@ import (
 	"github.com/banzaicloud/bank-vaults/operator/pkg/apis/vault/v1alpha1"
 	"github.com/banzaicloud/bank-vaults/operator/pkg/client/clientset/versioned"
 	vaultapi "github.com/hashicorp/vault/api"
+	"github.com/jenkins-x/jx-logging/pkg/log"
 	"github.com/jenkins-x/jx/v2/pkg/kube"
 	"github.com/jenkins-x/jx/v2/pkg/kube/cluster"
 	"github.com/jenkins-x/jx/v2/pkg/kube/naming"
 	"github.com/jenkins-x/jx/v2/pkg/kube/serviceaccount"
 	"github.com/jenkins-x/jx/v2/pkg/kube/services"
-	"github.com/jenkins-x/jx/v2/pkg/log"
 	"github.com/jenkins-x/jx/v2/pkg/util"
 	"github.com/jenkins-x/jx/v2/pkg/vault"
 	"github.com/pkg/errors"
@@ -429,7 +429,7 @@ func GetVault(vaultOperatorClient versioned.Interface, name string, ns string) (
 
 // GetVaults returns all vaults available in a given namespaces
 func GetVaults(client kubernetes.Interface, vaultOperatorClient versioned.Interface, ns string, useIngressURL bool) ([]*vault.Vault, error) {
-	vaultList, err := vaultOperatorClient.Vault().Vaults(ns).List(metav1.ListOptions{})
+	vaultList, err := vaultOperatorClient.VaultV1alpha1().Vaults(ns).List(metav1.ListOptions{})
 	if err != nil {
 		return nil, errors.Wrapf(err, "listing vaults in namespace '%s'", ns)
 	}
@@ -463,7 +463,7 @@ func GetVaults(client kubernetes.Interface, vaultOperatorClient versioned.Interf
 
 // DeleteVault delete a Vault resource
 func DeleteVault(vaultOperatorClient versioned.Interface, name string, ns string) error {
-	return vaultOperatorClient.Vault().Vaults(ns).Delete(name, &metav1.DeleteOptions{})
+	return vaultOperatorClient.VaultV1alpha1().Vaults(ns).Delete(name, &metav1.DeleteOptions{})
 }
 
 // GetAuthSaName gets the Auth Service Account name for the vault

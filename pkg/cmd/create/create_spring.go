@@ -12,9 +12,9 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/jenkins-x/jx-logging/pkg/log"
 	"github.com/jenkins-x/jx/v2/pkg/cmd/opts"
 	"github.com/jenkins-x/jx/v2/pkg/cmd/templates"
-	"github.com/jenkins-x/jx/v2/pkg/log"
 	"github.com/jenkins-x/jx/v2/pkg/spring"
 	"github.com/jenkins-x/jx/v2/pkg/util"
 )
@@ -44,17 +44,9 @@ var (
 	`)
 )
 
-// CreateSpringOptions the options for the create spring command
-type CreateSpringOptions struct {
-	CreateProjectOptions
-
-	Advanced   bool
-	SpringForm spring.SpringBootForm
-}
-
 // NewCmdCreateSpring creates a command object for the "create" command
 func NewCmdCreateSpring(commonOpts *opts.CommonOptions) *cobra.Command {
-	options := &CreateSpringOptions{
+	options := &SpringOptions{
 		CreateProjectOptions: CreateProjectOptions{
 			ImportOptions: importcmd.ImportOptions{
 				CommonOptions: commonOpts,
@@ -92,7 +84,7 @@ func NewCmdCreateSpring(commonOpts *opts.CommonOptions) *cobra.Command {
 }
 
 // Run implements the command
-func (o *CreateSpringOptions) Run() error {
+func (o *SpringOptions) Run() error {
 	cacheDir, err := util.CacheDir()
 	if err != nil {
 		return err

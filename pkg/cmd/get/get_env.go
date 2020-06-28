@@ -6,11 +6,11 @@ import (
 
 	"github.com/jenkins-x/jx/v2/pkg/cmd/helper"
 
+	"github.com/jenkins-x/jx-logging/pkg/log"
 	v1 "github.com/jenkins-x/jx/v2/pkg/apis/jenkins.io/v1"
 	"github.com/jenkins-x/jx/v2/pkg/cmd/opts"
 	"github.com/jenkins-x/jx/v2/pkg/cmd/templates"
 	"github.com/jenkins-x/jx/v2/pkg/kube"
-	"github.com/jenkins-x/jx/v2/pkg/log"
 	"github.com/jenkins-x/jx/v2/pkg/util"
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -97,7 +97,7 @@ func (o *GetEnvOptions) Run() error {
 		table.AddRow("NAME", "LABEL", "KIND", "NAMESPACE", "SOURCE", "REF", "PR")
 		table.AddRow(e, spec.Label, spec.Namespace, kindString(spec), spec.Source.URL, spec.Source.Ref, spec.PullRequestURL)
 		table.Render()
-		log.Blank()
+		log.Logger().Info("")
 
 		ens := env.Spec.Namespace
 		if ens != "" {
@@ -165,9 +165,10 @@ func kindString(spec *v1.EnvironmentSpec) string {
 func (o *GetEnvOptions) filterEnvironments(envs []v1.Environment) []v1.Environment {
 	answer := []v1.Environment{}
 	for _, e := range envs {
-		preview := e.Spec.Kind == v1.EnvironmentKindTypePreview
-		if o.matchesFilter(&e) && preview == o.PreviewOnly {
-			answer = append(answer, e)
+		env := e
+		preview := env.Spec.Kind == v1.EnvironmentKindTypePreview
+		if o.matchesFilter(&env) && preview == o.PreviewOnly {
+			answer = append(answer, env)
 		}
 	}
 	return answer

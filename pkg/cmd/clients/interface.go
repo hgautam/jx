@@ -19,14 +19,15 @@ import (
 	"github.com/jenkins-x/jx/v2/pkg/gits"
 	"github.com/jenkins-x/jx/v2/pkg/table"
 	certmngclient "github.com/jetstack/cert-manager/pkg/client/clientset/versioned"
-	kserve "github.com/knative/serving/pkg/client/clientset/versioned"
 	tektonclient "github.com/tektoncd/pipeline/pkg/client/clientset/versioned"
+	resourceclient "github.com/tektoncd/pipeline/pkg/client/resource/clientset/versioned"
 	apiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	metricsclient "k8s.io/metrics/pkg/client/clientset/versioned"
 	prowjobclient "k8s.io/test-infra/prow/client/clientset/versioned"
+	kserve "knative.dev/serving/pkg/client/clientset/versioned"
 
 	// this is so that we load the auth plugins so we can connect to, say, GCP
 
@@ -129,6 +130,9 @@ type Factory interface {
 
 	// CreateTektonClient create a new Kubernetes client for Tekton resources
 	CreateTektonClient() (tektonclient.Interface, string, error)
+
+	// CreateTektonPipelineResourceClient creates a new Kubernetes client for Tekton PipelineResources
+	CreateTektonPipelineResourceClient() (resourceclient.Interface, string, error)
 
 	// CreateProwJobClient creates a new Kubernetes client for ProwJob resources
 	CreateProwJobClient() (prowjobclient.Interface, string, error)

@@ -7,10 +7,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jenkins-x/jx-logging/pkg/log"
 	"github.com/jenkins-x/jx/v2/pkg/cloud"
 	"github.com/jenkins-x/jx/v2/pkg/cloud/amazon"
 	"github.com/jenkins-x/jx/v2/pkg/cloud/iks"
-	"github.com/jenkins-x/jx/v2/pkg/log"
 	"github.com/jenkins-x/jx/v2/pkg/surveyutils"
 	"github.com/jenkins-x/jx/v2/pkg/util"
 	"gopkg.in/AlecAivazis/survey.v1"
@@ -167,6 +167,7 @@ func (o *CommonOptions) GetDomain(client kubernetes.Interface, domain string, pr
 		log.Logger().Infof("If you don't have a wildcard DNS setup then create a DNS (A) record and point it at: %s, then use the DNS domain in the next input...", util.ColorInfo(address))
 
 		log.Logger().Info("\nIf you do not have a custom domain setup yet, Ingress rules will be set for magic DNS nip.io.")
+		// Todo: Evaluate mention of this deprecated command
 		log.Logger().Infof("Once you have a custom domain ready, you can update with the command %s", util.ColorInfo("jx upgrade ingress --cluster"))
 
 		if domain == "" {

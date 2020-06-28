@@ -10,11 +10,11 @@ import (
 	"github.com/jenkins-x/jx/v2/pkg/helm"
 
 	"github.com/blang/semver"
+	"github.com/jenkins-x/jx-logging/pkg/log"
 	"github.com/jenkins-x/jx/v2/pkg/cmd/opts"
 	"github.com/jenkins-x/jx/v2/pkg/cmd/templates"
 	"github.com/jenkins-x/jx/v2/pkg/config"
 	"github.com/jenkins-x/jx/v2/pkg/kube"
-	"github.com/jenkins-x/jx/v2/pkg/log"
 	"github.com/jenkins-x/jx/v2/pkg/util"
 	"github.com/jenkins-x/jx/v2/pkg/version"
 	"github.com/spf13/cobra"
@@ -34,7 +34,7 @@ var (
 
 	stepValidateExample = templates.Examples(`
 		# Validates that the jx version is new enough
-		jx step validate --min-jx-version ` + version.VersionStringDefault(version.ExampleVersion) + `
+		jx step validate --min-jx-version ` + version.StringDefault(version.ExampleVersion) + `
 			`)
 )
 
@@ -97,11 +97,8 @@ func (o *StepValidateOptions) verifyJxVersion(minJxVersion string) error {
 		info := util.ColorInfo
 		log.Logger().Infof("\nThe current installation of the %s CLI is too old: %s.\nWe require an installation of %s or later.\n", info("jx"), info(current.String()), info(require.String()))
 		log.Logger().Infof(`To upgrade try these commands:
-
-* to upgrade the platform:    %s
 * to upgrade the CLI locally: %s
-
-`, info("jx upgrade platform"), info("jx upgrade cli"))
+`, info("jx upgrade cli"))
 
 		return fmt.Errorf("The current jx install is too old: %s. We require: %s or later", current.String(), require.String())
 	}

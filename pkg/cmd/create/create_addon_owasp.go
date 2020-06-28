@@ -8,11 +8,11 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"github.com/jenkins-x/jx-logging/pkg/log"
 	v1 "github.com/jenkins-x/jx/v2/pkg/apis/jenkins.io/v1"
 	"github.com/jenkins-x/jx/v2/pkg/cmd/opts"
 	"github.com/jenkins-x/jx/v2/pkg/cmd/templates"
 	"github.com/jenkins-x/jx/v2/pkg/kube"
-	"github.com/jenkins-x/jx/v2/pkg/log"
 	"github.com/jenkins-x/jx/v2/pkg/util"
 )
 
@@ -65,9 +65,6 @@ func (o *CreateAddonOwaspOptions) Run() error {
 	name := "owasp-zap"
 	commands := []string{"zap-baseline.py", "-I", "-t", "$(JX_PREVIEW_URL)"}
 	image := o.Image
-	if name == "" {
-		return util.MissingOption(optionName)
-	}
 	if image == "" {
 		return util.MissingOption(optionImage)
 	}

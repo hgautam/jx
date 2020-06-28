@@ -12,9 +12,9 @@ import (
 
 	"github.com/jenkins-x/jx/v2/pkg/builds"
 	v1fake "github.com/jenkins-x/jx/v2/pkg/client/clientset/versioned/fake"
-	kservefake "github.com/knative/serving/pkg/client/clientset/versioned/fake"
 	apifake "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/fake"
 	"k8s.io/client-go/kubernetes/fake"
+	kservefake "knative.dev/serving/pkg/client/clientset/versioned/fake"
 
 	gojenkins "github.com/jenkins-x/golang-jenkins"
 	"github.com/jenkins-x/jx/v2/pkg/io/secrets"
@@ -33,10 +33,11 @@ import (
 	"github.com/jenkins-x/jx/v2/pkg/kube"
 	"github.com/jenkins-x/jx/v2/pkg/table"
 	fake_vault "github.com/jenkins-x/jx/v2/pkg/vault/fake"
-	kserve "github.com/knative/serving/pkg/client/clientset/versioned"
 	"github.com/pkg/errors"
 	tektonclient "github.com/tektoncd/pipeline/pkg/client/clientset/versioned"
 	tektonfake "github.com/tektoncd/pipeline/pkg/client/clientset/versioned/fake"
+	resourceclient "github.com/tektoncd/pipeline/pkg/client/resource/clientset/versioned"
+	resourcefake "github.com/tektoncd/pipeline/pkg/client/resource/clientset/versioned/fake"
 	apiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -44,6 +45,7 @@ import (
 	fake_metricsclient "k8s.io/metrics/pkg/client/clientset/versioned/fake"
 	prowjobclient "k8s.io/test-infra/prow/client/clientset/versioned"
 	fake_prowjobclient "k8s.io/test-infra/prow/client/clientset/versioned/fake"
+	kserve "knative.dev/serving/pkg/client/clientset/versioned"
 )
 
 // FakeFactory points to a fake factory implementation
@@ -59,13 +61,14 @@ type FakeFactory struct {
 	offline         bool
 
 	// cached fake clients
-	apiClient     apiextensionsclientset.Interface
-	jxClient      versioned.Interface
-	kubeClient    kubernetes.Interface
-	kserveClient  kserve.Interface
-	tektonClient  tektonclient.Interface
-	prowJobClient prowjobclient.Interface
-	dyncClient    dynamic.Interface
+	apiClient      apiextensionsclientset.Interface
+	jxClient       versioned.Interface
+	kubeClient     kubernetes.Interface
+	kserveClient   kserve.Interface
+	tektonClient   tektonclient.Interface
+	resourceClient resourceclient.Interface
+	prowJobClient  prowjobclient.Interface
+	dyncClient     dynamic.Interface
 }
 
 var _ clients.Factory = (*FakeFactory)(nil)
@@ -300,6 +303,14 @@ func (f *FakeFactory) CreateTektonClient() (tektonclient.Interface, string, erro
 		f.tektonClient = tektonfake.NewSimpleClientset()
 	}
 	return f.tektonClient, f.namespace, nil
+}
+
+// CreateTektonPipelineResourceClient create a new Kubernetes client for Tekton PipelineResource resources
+func (f *FakeFactory) CreateTektonPipelineResourceClient() (resourceclient.Interface, string, error) {
+	if f.resourceClient == nil {
+		f.resourceClient = resourcefake.NewSimpleClientset()
+	}
+	return f.resourceClient, f.namespace, nil
 }
 
 // CreateDynamicClient creates a new Kubernetes Dynamic client

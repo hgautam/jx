@@ -11,8 +11,6 @@ import (
 	vaultoperatorclient "github.com/banzaicloud/bank-vaults/operator/pkg/client/clientset/versioned"
 	"github.com/heptio/sonobuoy/pkg/client"
 	certmngclient "github.com/jetstack/cert-manager/pkg/client/clientset/versioned"
-	istioclient "github.com/knative/pkg/client/clientset/versioned"
-	kserve "github.com/knative/serving/pkg/client/clientset/versioned"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -24,8 +22,11 @@ import (
 	apiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/client-go/kubernetes"
 	prowjobclient "k8s.io/test-infra/prow/client/clientset/versioned"
+	kserve "knative.dev/serving/pkg/client/clientset/versioned"
+	istioclient "knative.dev/serving/pkg/client/istio/clientset/versioned"
 
 	gojenkins "github.com/jenkins-x/golang-jenkins"
+	"github.com/jenkins-x/jx-logging/pkg/log"
 	jenkinsv1 "github.com/jenkins-x/jx/v2/pkg/apis/jenkins.io/v1"
 	"github.com/jenkins-x/jx/v2/pkg/auth"
 	"github.com/jenkins-x/jx/v2/pkg/client/clientset/versioned"
@@ -40,7 +41,6 @@ import (
 	"github.com/jenkins-x/jx/v2/pkg/kube/resources"
 	"github.com/jenkins-x/jx/v2/pkg/kube/services"
 	"github.com/jenkins-x/jx/v2/pkg/kustomize"
-	"github.com/jenkins-x/jx/v2/pkg/log"
 	"github.com/jenkins-x/jx/v2/pkg/prow"
 	"github.com/jenkins-x/jx/v2/pkg/secreturl"
 	"github.com/jenkins-x/jx/v2/pkg/table"
@@ -180,8 +180,8 @@ func (o *CommonOptions) CreateTable() table.Table {
 	return o.factory.CreateTable(o.Out)
 }
 
-// NotifyProgress by default logs info to the console but a custom callback can be added to send feedback to, say, a web UI
-func (o *CommonOptions) NotifyProgress(level LogLevel, format string, args ...interface{}) {
+// NotifyProgressf by default logs info to the console but a custom callback can be added to send feedback to, say, a web UI
+func (o *CommonOptions) NotifyProgressf(level LogLevel, format string, args ...interface{}) {
 	if o.NotifyCallback != nil {
 		text := fmt.Sprintf(format, args...)
 		o.NotifyCallback(level, text)
@@ -236,7 +236,7 @@ func (o *CommonOptions) AddBaseFlags(cmd *cobra.Command) {
 		defaultBatchMode = true
 	}
 	cmd.PersistentFlags().BoolVarP(&o.BatchMode, OptionBatchMode, "b", defaultBatchMode, "Runs in batch mode without prompting for user input")
-	levels := strings.Join(log.GetLevels(), ", ")
+	levels := strings.Join([]string{"panic", "fatal", "error", "warn", "info", "debug", "trace"}, ", ")
 	cmd.PersistentFlags().BoolVarP(&o.Verbose, OptionVerbose, "", false, fmt.Sprintf("Enables verbose output. The environment variable JX_LOG_LEVEL has precedence over this flag and allows setting the logging level to any value of: %s", levels))
 
 	o.Cmd = cmd
@@ -875,7 +875,7 @@ func (o *CommonOptions) RetryQuiet(attempts int, sleep time.Duration, call func(
 		err = call()
 		if err == nil {
 			if dot {
-				log.Blank()
+				log.Logger().Info("")
 			}
 			return
 		}
@@ -894,7 +894,7 @@ func (o *CommonOptions) RetryQuiet(attempts int, sleep time.Duration, call func(
 			lastMessage = message
 			if dot {
 				dot = false
-				log.Blank()
+				log.Logger().Info("")
 			}
 			log.Logger().Warnf("%s\n", lastMessage)
 		}
@@ -913,7 +913,7 @@ func (o *CommonOptions) RetryQuietlyUntilTimeout(timeout time.Duration, sleep ti
 		err = call()
 		if err == nil {
 			if dot {
-				log.Blank()
+				log.Logger().Info("")
 			}
 			return
 		}
@@ -932,7 +932,7 @@ func (o *CommonOptions) RetryQuietlyUntilTimeout(timeout time.Duration, sleep ti
 			lastMessage = message
 			if dot {
 				dot = false
-				log.Blank()
+				log.Logger().Info("")
 			}
 			log.Logger().Warnf("%s\n", lastMessage)
 		}

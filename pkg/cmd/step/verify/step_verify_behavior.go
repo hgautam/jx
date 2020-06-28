@@ -4,9 +4,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jenkins-x/jx/v2/pkg/tekton"
 	"github.com/jenkins-x/jx/v2/pkg/tekton/metapipeline"
 	"github.com/sirupsen/logrus"
 
+	"github.com/jenkins-x/jx-logging/pkg/log"
 	"github.com/jenkins-x/jx/v2/pkg/builds"
 	"github.com/jenkins-x/jx/v2/pkg/cmd/get"
 	"github.com/jenkins-x/jx/v2/pkg/cmd/helper"
@@ -16,7 +18,6 @@ import (
 	"github.com/jenkins-x/jx/v2/pkg/cmd/templates"
 	"github.com/jenkins-x/jx/v2/pkg/gits"
 	"github.com/jenkins-x/jx/v2/pkg/kube"
-	"github.com/jenkins-x/jx/v2/pkg/log"
 	"github.com/jenkins-x/jx/v2/pkg/util"
 	"github.com/pkg/errors"
 
@@ -224,7 +225,7 @@ func (o *BehaviorOptions) runPipelineDirectly(owner string, repo string, sourceU
 	branch := "master"
 	pullRefs = branch + ":"
 	kind := metapipeline.ReleasePipeline
-	sa := "tekton-bot"
+	sa := tekton.DefaultPipelineSA
 
 	l := logrus.WithFields(logrus.Fields(map[string]interface{}{
 		"Owner":     owner,

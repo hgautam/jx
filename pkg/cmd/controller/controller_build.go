@@ -29,10 +29,10 @@ import (
 	"github.com/tektoncd/pipeline/pkg/apis/pipeline"
 	"k8s.io/client-go/kubernetes"
 
+	"github.com/jenkins-x/jx-logging/pkg/log"
 	v1 "github.com/jenkins-x/jx/v2/pkg/apis/jenkins.io/v1"
 	"github.com/jenkins-x/jx/v2/pkg/builds"
 	"github.com/jenkins-x/jx/v2/pkg/client/clientset/versioned"
-	"github.com/jenkins-x/jx/v2/pkg/log"
 	"github.com/jenkins-x/jx/v2/pkg/util"
 	"github.com/spf13/cobra"
 	tektonclient "github.com/tektoncd/pipeline/pkg/client/clientset/versioned"
@@ -1407,8 +1407,9 @@ func createStepDescription(containerName string, pod *corev1.Pod) string {
 	containers, _, isInit := kube.GetContainersWithStatusAndIsInit(pod)
 
 	for _, c := range containers {
-		_, args := kube.GetCommandAndArgs(&c, isInit)
-		if c.Name == containerName && len(args) > 0 {
+		container := c
+		_, args := kube.GetCommandAndArgs(&container, isInit)
+		if container.Name == containerName && len(args) > 0 {
 			if args[0] == "-url" && len(args) > 1 {
 				return args[1]
 			}

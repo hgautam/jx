@@ -10,10 +10,10 @@ import (
 	"github.com/jenkins-x/jx/v2/pkg/cmd/helper"
 
 	"github.com/ghodss/yaml"
+	"github.com/jenkins-x/jx-logging/pkg/log"
 	v1 "github.com/jenkins-x/jx/v2/pkg/apis/jenkins.io/v1"
 	"github.com/jenkins-x/jx/v2/pkg/cmd/opts"
 	"github.com/jenkins-x/jx/v2/pkg/gits"
-	"github.com/jenkins-x/jx/v2/pkg/log"
 	"github.com/jenkins-x/jx/v2/pkg/util"
 	"github.com/spf13/cobra"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -219,7 +219,7 @@ func (o *ControllerBackupOptions) writeResourceToBackupFile(obj interface{}, res
 	}
 
 	envFile := path.Join(nsDir, fmt.Sprintf("%s.yaml", key))
-	err = ioutil.WriteFile(envFile, out, 0644)
+	err = ioutil.WriteFile(envFile, out, 0600)
 	if err != nil {
 		log.Logger().Errorf("Unable to write file %s", err)
 		return

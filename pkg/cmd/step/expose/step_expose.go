@@ -18,6 +18,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/helm/pkg/chartutil"
 
+	"github.com/jenkins-x/jx-logging/pkg/log"
 	"github.com/jenkins-x/jx/v2/pkg/cmd/helper"
 	"github.com/jenkins-x/jx/v2/pkg/cmd/opts"
 	"github.com/jenkins-x/jx/v2/pkg/cmd/templates"
@@ -25,7 +26,6 @@ import (
 	"github.com/jenkins-x/jx/v2/pkg/helm"
 	"github.com/jenkins-x/jx/v2/pkg/kube"
 	"github.com/jenkins-x/jx/v2/pkg/kube/services"
-	"github.com/jenkins-x/jx/v2/pkg/log"
 	"github.com/jenkins-x/jx/v2/pkg/util"
 )
 
@@ -144,7 +144,8 @@ func (o *StepExposeOptions) Run() error {
 		return errors.Wrapf(err, "failed to query services in namespace %s", ns)
 	}
 
-	for _, svc := range serviceList.Items {
+	for _, s := range serviceList.Items {
+		svc := s
 		if !IsExposedService(&svc) {
 			continue
 		}

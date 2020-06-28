@@ -6,17 +6,17 @@ import (
 	"path/filepath"
 
 	"github.com/jenkins-x/jx/v2/pkg/cmd/step/git/credentials"
+	"github.com/jenkins-x/jx/v2/pkg/cmd/step/post"
 
 	"github.com/jenkins-x/jx/v2/pkg/cmd/opts/step"
 
 	"github.com/jenkins-x/jx/v2/pkg/cmd/helper"
 	"github.com/jenkins-x/jx/v2/pkg/cmd/promote"
-	"github.com/jenkins-x/jx/v2/pkg/cmd/step/post"
 
+	"github.com/jenkins-x/jx-logging/pkg/log"
 	"github.com/jenkins-x/jx/v2/pkg/cmd/opts"
 	helm_cmd "github.com/jenkins-x/jx/v2/pkg/cmd/step/helm"
 	"github.com/jenkins-x/jx/v2/pkg/kube"
-	"github.com/jenkins-x/jx/v2/pkg/log"
 	"github.com/jenkins-x/jx/v2/pkg/util"
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -227,6 +227,7 @@ func (o *StepReleaseOptions) Run() error {
 	if err != nil {
 		return fmt.Errorf("Failed to run skaffold: %s", err)
 	}
+
 	imageName := fmt.Sprintf("%s/%s/%s:%s", o.DockerRegistry, o.Organisation, o.Application, o.Version)
 
 	stepPostBuildOptions := &post.StepPostBuildOptions{

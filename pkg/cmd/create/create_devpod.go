@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/jenkins-x/jx/v2/pkg/auth"
+	"github.com/jenkins-x/jx/v2/pkg/tekton"
 
 	"github.com/jenkins-x/jx/v2/pkg/cmd/step/git/credentials"
 
@@ -27,6 +28,7 @@ import (
 	"github.com/jenkins-x/jx/v2/pkg/gits"
 	v12 "k8s.io/client-go/kubernetes/typed/core/v1"
 
+	"github.com/jenkins-x/jx-logging/pkg/log"
 	v1 "github.com/jenkins-x/jx/v2/pkg/apis/jenkins.io/v1"
 	"github.com/jenkins-x/jx/v2/pkg/cmd/opts"
 	"github.com/jenkins-x/jx/v2/pkg/cmd/templates"
@@ -35,7 +37,6 @@ import (
 	"github.com/jenkins-x/jx/v2/pkg/kube"
 	"github.com/jenkins-x/jx/v2/pkg/kube/serviceaccount"
 	"github.com/jenkins-x/jx/v2/pkg/kube/services"
-	"github.com/jenkins-x/jx/v2/pkg/log"
 	"github.com/jenkins-x/jx/v2/pkg/util"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
@@ -338,7 +339,7 @@ func (o *CreateDevPodOptions) Run() error {
 	ideContainerName := "ide"
 	if create {
 		if o.TempDir && importURL != "" {
-			o.NotifyProgress(opts.LogInfo, "cloning git URL: %s\n", importURL)
+			o.NotifyProgressf(opts.LogInfo, "cloning git URL: %s\n", importURL)
 
 			err = o.Git().ShallowClone(dir, importURL, "master", "")
 			if err != nil {
@@ -483,7 +484,7 @@ func (o *CreateDevPodOptions) Run() error {
 
 				sa = "jenkins"
 				if settings.IsJenkinsXPipelines() {
-					sa = "tekton-bot"
+					sa = tekton.DefaultPipelineSA
 				} else if prow {
 					sa = "knative-build-bot"
 				}
@@ -686,8 +687,8 @@ func (o *CreateDevPodOptions) Run() error {
 		if portsStr, ok := pod.Annotations["jenkins-x.io/devpodPorts"]; ok {
 			ports := strings.Split(portsStr, ", ")
 			for _, portStr := range ports {
-				port, _ := strconv.Atoi(portStr)
-				exposeServicePorts = append(exposeServicePorts, port)
+				port, _ := strconv.ParseInt(portStr, 10, 32)
+				exposeServicePorts = append(exposeServicePorts, int(port))
 				cp := corev1.ContainerPort{
 					Name:          fmt.Sprintf("port-%d", port),
 					ContainerPort: int32(port),
@@ -725,7 +726,7 @@ func (o *CreateDevPodOptions) Run() error {
 
 	ideServiceName := name + "-ide"
 	if create {
-		o.NotifyProgress(opts.LogInfo, "Creating a DevPod of label: %s\n", util.ColorInfo(label))
+		o.NotifyProgressf(opts.LogInfo, "Creating a DevPod of label: %s\n", util.ColorInfo(label))
 		_, err = podResources.Create(pod)
 		if err != nil {
 			return fmt.Errorf("failed to create pod %s\npod: %#v", err, pod)
@@ -738,7 +739,7 @@ func (o *CreateDevPodOptions) Run() error {
 			}
 		}
 
-		o.NotifyProgress(opts.LogInfo, "Created pod %s - waiting for it to be ready...\n", util.ColorInfo(name))
+		o.NotifyProgressf(opts.LogInfo, "Created pod %s - waiting for it to be ready...\n", util.ColorInfo(name))
 
 		err = kube.WaitForPodNameToBeReady(client, ns, name, time.Hour)
 		if err != nil {
@@ -859,7 +860,7 @@ func (o *CreateDevPodOptions) Run() error {
 		}
 	}
 
-	o.NotifyProgress(opts.LogInfo, "Pod %s is now ready!\n", util.ColorInfo(pod.Name))
+	o.NotifyProgressf(opts.LogInfo, "Pod %s is now ready!\n", util.ColorInfo(pod.Name))
 	log.Logger().Infof("You can open other shells into this DevPod via %s", util.ColorInfo("jx create devpod"))
 
 	if !o.Sync {
@@ -881,7 +882,7 @@ func (o *CreateDevPodOptions) Run() error {
 				log.Logger().Infof("\nYou can edit your app using the Web IDE at: %s", util.ColorInfo(ideServiceURL))
 				o.Results.TheaServiceURL = ideServiceURL
 			} else {
-				o.NotifyProgress(opts.LogWarning, "Could not find service with name %s in namespace %s\n", ideServiceName, curNs)
+				o.NotifyProgressf(opts.LogWarning, "Could not find service with name %s in namespace %s\n", ideServiceName, curNs)
 			}
 		} else {
 			exposeCmd := fmt.Sprintf("kubectl port-forward svc/%s 8080:80", ideServiceName)
@@ -944,7 +945,7 @@ func (o *CreateDevPodOptions) Run() error {
 	var rshExec []string
 	if create {
 		//  Let install bash-completion to make life better
-		o.NotifyProgress(opts.LogInfo, "Attempting to install Bash Completion into DevPod\n")
+		o.NotifyProgressf(opts.LogInfo, "Attempting to install Bash Completion into DevPod\n")
 
 		rshExec = append(rshExec,
 			"if which yum &> /dev/null; then yum install -q -y bash-completion bash-completion-extra; fi",
@@ -1109,7 +1110,7 @@ func (o *CreateDevPodOptions) ensureEditEnvironmentHasExposeController(env *v1.E
 	editNs := env.Spec.Namespace
 	flag, err = kube.IsDeploymentRunning(kubeClient, kube.DeploymentExposecontrollerService, editNs)
 	if !flag || err != nil {
-		o.NotifyProgress(opts.LogInfo, "Installing the ExposecontrollerService in the namespace: %s\n", util.ColorInfo(editNs))
+		o.NotifyProgressf(opts.LogInfo, "Installing the ExposecontrollerService in the namespace: %s\n", util.ColorInfo(editNs))
 		releaseName := editNs + "-es"
 		err = o.InstallChartWithOptions(helm.InstallChartOptions{
 			ReleaseName: releaseName,
@@ -1202,7 +1203,8 @@ func (o *CreateDevPodOptions) findDevPodBySelector(podResources v12.PodInterface
 		return pod, errors.Wrap(err, "listing PODs")
 	}
 	for _, p := range podsList.Items {
-		ann := p.Annotations
+		pod := p
+		ann := pod.Annotations
 		if ann == nil {
 			ann = map[string]string{}
 		}
@@ -1211,10 +1213,9 @@ func (o *CreateDevPodOptions) findDevPodBySelector(podResources v12.PodInterface
 		if !o.Sync {
 			matchDir = ""
 		}
-		if p.DeletionTimestamp == nil && ann[kube.AnnotationLocalDir] == matchDir {
-			pod = &p
-			o.NotifyProgress(opts.LogInfo, "Reusing pod %s - waiting for it to be ready...\n", util.ColorInfo(pod.Name))
-			return pod, nil
+		if pod.DeletionTimestamp == nil && ann[kube.AnnotationLocalDir] == matchDir {
+			o.NotifyProgressf(opts.LogInfo, "Reusing pod %s - waiting for it to be ready...\n", util.ColorInfo(pod.Name))
+			return &pod, nil
 		}
 	}
 	return pod, nil

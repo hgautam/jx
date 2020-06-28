@@ -29,20 +29,20 @@ import (
 
 	"github.com/jenkins-x/jx/v2/pkg/kube/services"
 
+	"github.com/jenkins-x/jx-logging/pkg/log"
 	v1 "github.com/jenkins-x/jx/v2/pkg/apis/jenkins.io/v1"
 	"github.com/jenkins-x/jx/v2/pkg/cmd/opts"
 	"github.com/jenkins-x/jx/v2/pkg/cmd/templates"
 	"github.com/jenkins-x/jx/v2/pkg/config"
 	"github.com/jenkins-x/jx/v2/pkg/gits"
 	"github.com/jenkins-x/jx/v2/pkg/kube"
-	"github.com/jenkins-x/jx/v2/pkg/log"
 	"github.com/jenkins-x/jx/v2/pkg/util"
-	kserve "github.com/knative/serving/pkg/client/clientset/versioned"
 	"github.com/spf13/cobra"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+	kserve "knative.dev/serving/pkg/client/clientset/versioned"
 )
 
 var (
@@ -500,7 +500,7 @@ func (o *PreviewOptions) Run() error {
 
 	configFileName := filepath.Join(dir, opts.ExtraValuesFile)
 	log.Logger().Infof("%s", config)
-	err = ioutil.WriteFile(configFileName, []byte(config), 0644)
+	err = ioutil.WriteFile(configFileName, []byte(config), 0600)
 	if err != nil {
 		return err
 	}
@@ -720,7 +720,8 @@ func (o *PreviewOptions) RunPostPreviewSteps(kubeClient kubernetes.Interface, ns
 	jobs := teamSettings.PostPreviewJobs
 	jobResources := kubeClient.BatchV1().Jobs(ns)
 	createdJobs := []*batchv1.Job{}
-	for _, job := range jobs {
+	for _, j := range jobs {
+		job := j
 		// TODO lets modify the job name?
 		job2 := o.modifyJob(&job, envVars)
 		log.Logger().Infof("Triggering post preview Job %s in namespace %s", util.ColorInfo(job2.Name), util.ColorInfo(ns))
@@ -968,7 +969,7 @@ func (o *PreviewOptions) GetPreviewValuesConfig(projectConfig *config.ProjectCon
 
 func writePreviewURL(o *PreviewOptions, url string) {
 	previewFileName := filepath.Join(o.Dir, ".previewUrl")
-	err := ioutil.WriteFile(previewFileName, []byte(url), 0644)
+	err := ioutil.WriteFile(previewFileName, []byte(url), 0600)
 	if err != nil {
 		log.Logger().Warnf("Unable to write preview file")
 	}

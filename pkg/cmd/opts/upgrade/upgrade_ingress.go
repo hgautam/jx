@@ -15,8 +15,8 @@ import (
 	"github.com/jenkins-x/jx/v2/pkg/kube/services"
 	"github.com/pkg/errors"
 
+	"github.com/jenkins-x/jx-logging/pkg/log"
 	"github.com/jenkins-x/jx/v2/pkg/kube"
-	"github.com/jenkins-x/jx/v2/pkg/log"
 	"github.com/jenkins-x/jx/v2/pkg/util"
 	survey "gopkg.in/AlecAivazis/survey.v1"
 	v1 "k8s.io/api/core/v1"
@@ -65,6 +65,7 @@ func (o *UpgradeIngressOptions) Run() error {
 		return errors.Wrap(err, "error obtaining the ")
 	}
 
+	//Todo: Possibly used with jx install, if so, it should not be removed now
 	if devEnv.Spec.TeamSettings.BootRequirements != "" {
 		return errors.New(`jx upgrade ingress shouldn't be used in a Jenkins X Boot cluster.
 For more documentation on Ingress configuration see: [https://jenkins-x.io/docs/getting-started/setup/boot/#ingress](https://jenkins-x.io/docs/getting-started/setup/boot/#ingress)`)
@@ -327,9 +328,10 @@ func (o *UpgradeIngressOptions) getExistingIngressRules() (map[string]string, er
 			return existingIngressNames, fmt.Errorf("cannot list all ingresses in cluster: %v", err)
 		}
 		for _, i := range ings.Items {
-			if i.Annotations[services.ExposeGeneratedByAnnotation] == exposecontroller {
-				if o.isIngressForServices(&i) {
-					existingIngressNames[i.Name] = i.Namespace
+			item := i
+			if item.Annotations[services.ExposeGeneratedByAnnotation] == exposecontroller {
+				if o.isIngressForServices(&item) {
+					existingIngressNames[item.Name] = item.Namespace
 				}
 			}
 		}
@@ -348,9 +350,10 @@ func (o *UpgradeIngressOptions) getExistingIngressRules() (map[string]string, er
 				return existingIngressNames, fmt.Errorf("cannot list all ingresses in cluster: %v", err)
 			}
 			for _, i := range ings.Items {
+				item := i
 				if i.Annotations[services.ExposeGeneratedByAnnotation] == exposecontroller {
-					if o.isIngressForServices(&i) {
-						existingIngressNames[i.Name] = i.Namespace
+					if o.isIngressForServices(&item) {
+						existingIngressNames[item.Name] = item.Namespace
 					}
 				}
 			}
@@ -366,9 +369,10 @@ func (o *UpgradeIngressOptions) getExistingIngressRules() (map[string]string, er
 			return existingIngressNames, fmt.Errorf("cannot list all ingresses in cluster: %v", err)
 		}
 		for _, i := range ings.Items {
+			item := i
 			if i.Annotations[services.ExposeGeneratedByAnnotation] == exposecontroller {
-				if o.isIngressForServices(&i) {
-					existingIngressNames[i.Name] = i.Namespace
+				if o.isIngressForServices(&item) {
+					existingIngressNames[item.Name] = item.Namespace
 				}
 			}
 		}

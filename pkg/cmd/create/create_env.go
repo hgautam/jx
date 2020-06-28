@@ -15,13 +15,13 @@ import (
 
 	"fmt"
 
+	"github.com/jenkins-x/jx-logging/pkg/log"
 	v1 "github.com/jenkins-x/jx/v2/pkg/apis/jenkins.io/v1"
 	"github.com/jenkins-x/jx/v2/pkg/cmd/opts"
 	"github.com/jenkins-x/jx/v2/pkg/cmd/templates"
 	"github.com/jenkins-x/jx/v2/pkg/config"
 	"github.com/jenkins-x/jx/v2/pkg/gits"
 	"github.com/jenkins-x/jx/v2/pkg/kube"
-	"github.com/jenkins-x/jx/v2/pkg/log"
 	"github.com/jenkins-x/jx/v2/pkg/prow"
 	"github.com/jenkins-x/jx/v2/pkg/util"
 )
@@ -320,7 +320,13 @@ func (o *CreateEnvOptions) RegisterEnvironment(env *v1.Environment, gitProvider 
 				return err
 			}
 			sr, err := kube.GetOrCreateSourceRepository(jxClient, devNs, gitInfo.Name, gitInfo.Organisation, gitInfo.HostURLWithoutUser())
-			log.Logger().Debugf("have SourceRepository: %s\n", sr.Name)
+			if err != nil {
+				return errors.Wrap(err, "getting or creating source repository")
+			} else if sr == nil {
+				log.Logger().Warnf("unexpected returned nil value for sr in GetOrCreateSourceRepository")
+			} else {
+				log.Logger().Debugf("have SourceRepository: %s\n", sr.Name)
+			}
 
 			err = o.GenerateProwConfig(devNs, devEnv)
 			if err != nil {

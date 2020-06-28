@@ -13,6 +13,7 @@ import (
 	//"github.com/jenkins-x/jx/v2/pkg/cmd/controller"
 
 	"github.com/ghodss/yaml"
+	"github.com/jenkins-x/jx-logging/pkg/log"
 	v1 "github.com/jenkins-x/jx/v2/pkg/apis/jenkins.io/v1"
 	"github.com/jenkins-x/jx/v2/pkg/client/clientset/versioned"
 	v1fake "github.com/jenkins-x/jx/v2/pkg/client/clientset/versioned/fake"
@@ -26,9 +27,7 @@ import (
 	"github.com/jenkins-x/jx/v2/pkg/helm"
 	"github.com/jenkins-x/jx/v2/pkg/kube"
 	"github.com/jenkins-x/jx/v2/pkg/kube/resources"
-	"github.com/jenkins-x/jx/v2/pkg/log"
 	"github.com/jenkins-x/jx/v2/pkg/util"
-	kservefake "github.com/knative/serving/pkg/client/clientset/versioned/fake"
 	"github.com/petergtz/pegomock"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
@@ -36,6 +35,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/fake"
+	kservefake "knative.dev/serving/pkg/client/clientset/versioned/fake"
 )
 
 // ConfigureTestOptions lets configure the options for use in tests

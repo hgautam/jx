@@ -24,9 +24,9 @@ import (
 
 	"github.com/blang/semver"
 	version "github.com/hashicorp/go-version"
+	"github.com/jenkins-x/jx-logging/pkg/log"
 	"github.com/jenkins-x/jx/v2/pkg/cmd/opts"
 	"github.com/jenkins-x/jx/v2/pkg/cmd/templates"
-	"github.com/jenkins-x/jx/v2/pkg/log"
 	"github.com/spf13/cobra"
 )
 
@@ -131,7 +131,7 @@ func (o *StepNextVersionOptions) Run() error {
 	}
 
 	// in declarative pipelines we sometimes need to write the version to a file rather than pass state
-	err = ioutil.WriteFile("VERSION", []byte(o.NewVersion), 0755)
+	err = ioutil.WriteFile("VERSION", []byte(o.NewVersion), 0600)
 	if err != nil {
 		return err
 	}
@@ -398,7 +398,7 @@ func (o *StepNextVersionOptions) SetVersion() error {
 		}
 	}
 	output := strings.Join(lines, "\n")
-	err = ioutil.WriteFile(filename, []byte(output), 0644)
+	err = ioutil.WriteFile(filename, []byte(output), 0600)
 	if err != nil {
 		return err
 	}

@@ -14,12 +14,12 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"github.com/jenkins-x/jx-logging/pkg/log"
 	"github.com/jenkins-x/jx/v2/pkg/cmd/helper"
 	"github.com/jenkins-x/jx/v2/pkg/cmd/namespace"
 	"github.com/jenkins-x/jx/v2/pkg/cmd/step/create"
 	"github.com/jenkins-x/jx/v2/pkg/config"
 	"github.com/jenkins-x/jx/v2/pkg/gits"
-	"github.com/jenkins-x/jx/v2/pkg/log"
 	"github.com/jenkins-x/jx/v2/pkg/util"
 	"github.com/pkg/errors"
 
@@ -568,13 +568,17 @@ func (o *BootOptions) verifyRequirements(requirements *config.RequirementsConfig
 
 func (o *BootOptions) verifyClusterConnection() error {
 	client, ns, err := o.KubeClientAndNamespace()
-	if err == nil {
-		_, err = client.CoreV1().Pods(ns).List(metav1.ListOptions{})
-	}
 	if err != nil {
-		return fmt.Errorf("You are not currently connected to a cluster, please connect to the cluster that you intend to %s\n"+
+		return errors.Wrapf(err, "Unable to get current kube client/namespace  You are not currently connected to a cluster, please connect to the cluster that you intend to %s\n"+
 			"Alternatively create a new cluster using %s", util.ColorInfo("jx boot"), util.ColorInfo("jx create cluster"))
 	}
+
+	_, err = client.CoreV1().Pods(ns).List(metav1.ListOptions{})
+	if err != nil {
+		return errors.Wrapf(err, "Unable to list pods. You are not currently connected to a cluster, please connect to the cluster that you intend to %s\n"+
+			"Alternatively create a new cluster using %s", util.ColorInfo("jx boot"), util.ColorInfo("jx create cluster"))
+	}
+
 	return nil
 }
 

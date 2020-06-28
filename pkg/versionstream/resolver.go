@@ -3,14 +3,19 @@ package versionstream
 import (
 	"fmt"
 
+	"github.com/jenkins-x/jx-logging/pkg/log"
 	"github.com/jenkins-x/jx/v2/pkg/errorutil"
-	"github.com/jenkins-x/jx/v2/pkg/log"
 	"github.com/jenkins-x/jx/v2/pkg/util"
 )
 
 // VersionResolver resolves versions of charts, packages or docker images
 type VersionResolver struct {
 	VersionsDir string
+}
+
+// GetVersionsDir returns the versionsdir
+func (v *VersionResolver) GetVersionsDir() string {
+	return v.VersionsDir
 }
 
 // ResolveDockerImage ensures the given docker image has a valid version if there is one in the version stream

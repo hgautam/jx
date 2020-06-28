@@ -12,17 +12,18 @@ import (
 	"github.com/jenkins-x/jx/v2/pkg/auth"
 	clientv1 "github.com/jenkins-x/jx/v2/pkg/client/clientset/versioned/typed/jenkins.io/v1"
 	"github.com/jenkins-x/jx/v2/pkg/cmd/clients"
+	"github.com/jenkins-x/jx/v2/pkg/jxfactory"
 	"github.com/jenkins-x/jx/v2/pkg/kube/naming"
 	"github.com/tektoncd/pipeline/pkg/apis/pipeline"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/client-go/kubernetes"
 
+	"github.com/jenkins-x/jx-logging/pkg/log"
 	"github.com/jenkins-x/jx/v2/pkg/client/clientset/versioned"
 	jxClient "github.com/jenkins-x/jx/v2/pkg/client/clientset/versioned"
 	"github.com/jenkins-x/jx/v2/pkg/gits"
 	"github.com/jenkins-x/jx/v2/pkg/kube"
-	"github.com/jenkins-x/jx/v2/pkg/log"
 	"github.com/jenkins-x/jx/v2/pkg/tekton/syntax"
 	"github.com/jenkins-x/jx/v2/pkg/util"
 	"github.com/pkg/errors"
@@ -75,9 +76,15 @@ func GeneratePipelineActivity(buildNumber string, branch string, gitInfo *gits.G
 // CreateOrUpdateSourceResource lazily creates a Tekton Pipeline PipelineResource for the given git repository
 func CreateOrUpdateSourceResource(tektonClient tektonclient.Interface, ns string, created *v1alpha1.PipelineResource) (*v1alpha1.PipelineResource, error) {
 	resourceName := created.Name
-	resourceInterface := tektonClient.TektonV1alpha1().PipelineResources(ns)
+	factory := jxfactory.NewFactory()
 
-	_, err := resourceInterface.Create(created)
+	resourceClient, _, err := factory.CreateTektonPipelineResourceClient()
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to create Tekton PipelineResource client")
+	}
+	resourceInterface := resourceClient.TektonV1alpha1().PipelineResources(ns)
+
+	_, err = resourceInterface.Create(created)
 	if err == nil {
 		return created, nil
 	}
@@ -297,13 +304,16 @@ func CreatePipelineRun(resources []*pipelineapi.PipelineResource,
 	for _, resource := range resources {
 		resourceBindings = append(resourceBindings, pipelineapi.PipelineResourceBinding{
 			Name: resource.Name,
-			ResourceRef: pipelineapi.PipelineResourceRef{
+			ResourceRef: &pipelineapi.PipelineResourceRef{
 				Name:       resource.Name,
 				APIVersion: resource.APIVersion,
 			},
 		})
 	}
 
+	if serviceAccount == "" {
+		serviceAccount = DefaultPipelineSA
+	}
 	if timeout == nil {
 		timeout = &metav1.Duration{Duration: 240 * time.Hour}
 	}
@@ -319,7 +329,7 @@ func CreatePipelineRun(resources []*pipelineapi.PipelineResource,
 		},
 		Spec: pipelineapi.PipelineRunSpec{
 			ServiceAccountName: serviceAccount,
-			PipelineRef: pipelineapi.PipelineRef{
+			PipelineRef: &pipelineapi.PipelineRef{
 				Name:       name,
 				APIVersion: apiVersion,
 			},
@@ -327,7 +337,7 @@ func CreatePipelineRun(resources []*pipelineapi.PipelineResource,
 			Params:    pipelineParams,
 			// TODO: We shouldn't have to set a default timeout in the first place. See https://github.com/tektoncd/pipeline/issues/978
 			Timeout: timeout,
-			PodTemplate: pipelineapi.PodTemplate{
+			PodTemplate: &pipelineapi.PodTemplate{
 				Affinity:    affinity,
 				Tolerations: tolerations,
 			},

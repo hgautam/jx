@@ -7,8 +7,8 @@ import (
 
 	"github.com/banzaicloud/bank-vaults/operator/pkg/apis/vault/v1alpha1"
 	"github.com/banzaicloud/bank-vaults/operator/pkg/client/clientset/versioned/fake"
+	"github.com/jenkins-x/jx-logging/pkg/log"
 	"github.com/jenkins-x/jx/v2/pkg/kube/vault"
-	"github.com/jenkins-x/jx/v2/pkg/log"
 	"github.com/stretchr/testify/assert"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -28,7 +28,10 @@ func TestCreateOrUpdateVault_with_no_preexisting_CRD_creates_vault(t *testing.T)
 			Name:      vaultName,
 			Namespace: namespace,
 		},
-		Spec: v1alpha1.VaultSpec{},
+		Spec: v1alpha1.VaultSpec{
+			Config:         v1alpha1.VaultConfig{},
+			ExternalConfig: v1alpha1.VaultExternalConfig{},
+		},
 	}
 
 	vaultOperatorClient := fake.NewSimpleClientset()

@@ -6,9 +6,9 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/jenkins-x/jx-logging/pkg/log"
 	"github.com/jenkins-x/jx/v2/pkg/auth"
 	"github.com/jenkins-x/jx/v2/pkg/kube/naming"
-	"github.com/jenkins-x/jx/v2/pkg/log"
 
 	"github.com/pkg/errors"
 
@@ -31,7 +31,8 @@ func EnsureGitServiceExistsForHost(jxClient versioned.Interface, devNs string, k
 	if err != nil {
 		return errors.Wrap(err, "failed to list git services")
 	}
-	for _, gs := range list.Items {
+	for _, g := range list.Items {
+		gs := g
 		if gitUrlsEqual(gs.Spec.URL, gitUrl) {
 			oldKind := gs.Spec.GitKind
 			if oldKind != kind {

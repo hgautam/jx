@@ -15,8 +15,8 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/google/go-github/github"
+	"github.com/jenkins-x/jx-logging/pkg/log"
 	"github.com/jenkins-x/jx/v2/pkg/auth"
-	"github.com/jenkins-x/jx/v2/pkg/log"
 	"github.com/jenkins-x/jx/v2/pkg/util"
 	"golang.org/x/oauth2"
 )
@@ -1259,7 +1259,8 @@ func (p *GitHubProvider) fromGithubIssue(org string, name string, number int, i 
 
 	labels := []GitLabel{}
 	for _, label := range i.Labels {
-		labels = append(labels, toGitHubLabel(&label))
+		l := label
+		labels = append(labels, toGitHubLabel(&l))
 	}
 	assignees := []GitUser{}
 	for _, assignee := range i.Assignees {

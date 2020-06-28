@@ -19,8 +19,10 @@ package cmd
 import (
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
@@ -30,6 +32,9 @@ import (
 	"github.com/jenkins-x/jx/v2/pkg/cmd/experimental"
 	"github.com/jenkins-x/jx/v2/pkg/cmd/profile"
 	"github.com/jenkins-x/jx/v2/pkg/cmd/ui"
+
+	version2 "github.com/jenkins-x/jx/v2/pkg/cmd/version"
+
 	"github.com/spf13/viper"
 
 	"github.com/jenkins-x/jx/v2/pkg/cmd/boot"
@@ -59,8 +64,9 @@ import (
 
 	"github.com/jenkins-x/jx/v2/pkg/extensions"
 
+	"github.com/jenkins-x/jx-logging/pkg/log"
 	"github.com/jenkins-x/jx/v2/pkg/features"
-	"github.com/jenkins-x/jx/v2/pkg/log"
+	"github.com/jenkins-x/jx/v2/pkg/util"
 
 	"github.com/jenkins-x/jx/v2/pkg/cmd/clients"
 	"github.com/jenkins-x/jx/v2/pkg/cmd/opts"
@@ -225,9 +231,9 @@ func NewJXCommand(f clients.Factory, in terminal.FileReader, out terminal.FileWr
 	}
 	templates.ActsAsRootCommand(rootCommand, filters, getPluginCommandGroups, groups...)
 	rootCommand.AddCommand(NewCmdDocs(commonOpts))
-	rootCommand.AddCommand(NewCmdVersion(commonOpts))
+	rootCommand.AddCommand(version2.NewCmdVersion(commonOpts))
 	rootCommand.Version = version.GetVersion()
-	rootCommand.SetVersionTemplate("{{printf .Version}}\n")
+	rootCommand.SetVersionTemplate("{{printf .Version}}\n Deprecated will be removed on July 1, 2020. Please use version instead\n")
 	rootCommand.AddCommand(NewCmdOptions(out))
 	rootCommand.AddCommand(NewCmdDiagnose(commonOpts))
 
@@ -420,10 +426,23 @@ func handleEndpointExtensions(pluginHandler PluginHandler, cmdArgs []string) err
 
 	foundBinaryPath := ""
 
+	pluginDir, err := util.PluginBinDir("jx")
+	if err != nil {
+		log.Logger().Debugf("failed to find plugin dir %s", err.Error())
+	}
+
 	// attempt to find binary, starting at longest possible name with given cmdArgs
 	for len(remainingArgs) > 0 {
-		path, err := pluginHandler.Lookup(fmt.Sprintf("jx-%s", strings.Join(remainingArgs, "-")))
+		commandName := fmt.Sprintf("jx-%s", strings.Join(remainingArgs, "-"))
+		path, err := pluginHandler.Lookup(commandName)
 		if err != nil || len(path) == 0 {
+			// lets see if we have previously downloaded this binary plugin
+			path = FindPluginBinary(pluginDir, commandName)
+			if path != "" {
+				foundBinaryPath = path
+				break
+			}
+
 			/* Usually "executable file not found in $PATH", spams output of jx help subcommand:
 			if err != nil {
 				log.Logger().Errorf("Error installing plugin for command %s. %v\n", remainingArgs, err)
@@ -449,4 +468,25 @@ func handleEndpointExtensions(pluginHandler PluginHandler, cmdArgs []string) err
 	}
 
 	return nil
+}
+
+// FindPluginBinary tries to find the jx-foo binary plugin in the plugins dir `~/.jx/plugins/jx/bin` dir `
+func FindPluginBinary(pluginDir string, commandName string) string {
+	if pluginDir != "" {
+		files, err := ioutil.ReadDir(pluginDir)
+		if err != nil {
+			log.Logger().Debugf("failed to read plugin dir %s", err.Error())
+		} else {
+			prefix := commandName + "-"
+			for _, f := range files {
+				name := f.Name()
+				if strings.HasPrefix(name, prefix) {
+					path := filepath.Join(pluginDir, name)
+					log.Logger().Debugf("found plugin %s at %s", commandName, path)
+					return path
+				}
+			}
+		}
+	}
+	return ""
 }

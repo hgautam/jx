@@ -27,6 +27,7 @@ import (
 	"github.com/jenkins-x/jx/v2/pkg/users"
 
 	"github.com/ghodss/yaml"
+	"github.com/jenkins-x/jx-logging/pkg/log"
 	jenkinsio "github.com/jenkins-x/jx/v2/pkg/apis/jenkins.io"
 	v1 "github.com/jenkins-x/jx/v2/pkg/apis/jenkins.io/v1"
 	"github.com/jenkins-x/jx/v2/pkg/cmd/opts"
@@ -34,7 +35,6 @@ import (
 	"github.com/jenkins-x/jx/v2/pkg/gits"
 	"github.com/jenkins-x/jx/v2/pkg/issues"
 	"github.com/jenkins-x/jx/v2/pkg/kube"
-	"github.com/jenkins-x/jx/v2/pkg/log"
 	"github.com/jenkins-x/jx/v2/pkg/util"
 	"github.com/spf13/cobra"
 	"gopkg.in/src-d/go-git.v4/plumbing/object"
@@ -380,9 +380,9 @@ func (o *StepChangelogOptions) Run() error {
 	}
 	if commits != nil && gitProvider != nil {
 		for _, commit := range *commits {
-
+			c := commit
 			if o.IncludeMergeCommits || len(commit.ParentHashes) <= 1 {
-				o.addCommit(&release.Spec, &commit, &resolver)
+				o.addCommit(&release.Spec, &c, &resolver)
 			}
 		}
 	}

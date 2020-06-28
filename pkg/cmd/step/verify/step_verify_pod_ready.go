@@ -12,9 +12,9 @@ import (
 	"os"
 	"os/exec"
 
+	"github.com/jenkins-x/jx-logging/pkg/log"
 	"github.com/jenkins-x/jx/v2/pkg/cmd/helper"
 	"github.com/jenkins-x/jx/v2/pkg/kube"
-	"github.com/jenkins-x/jx/v2/pkg/log"
 	"github.com/jenkins-x/jx/v2/pkg/table"
 	"k8s.io/client-go/kubernetes"
 
@@ -136,7 +136,8 @@ func (o *StepVerifyPodReadyOptions) waitForReadyPods(kubeClient kubernetes.Inter
 
 	notReadyPhases := map[string][]string{}
 
-	for _, pod := range pods.Items {
+	for _, p := range pods.Items {
+		pod := p
 		podName := pod.ObjectMeta.Name
 		phase := pod.Status.Phase
 

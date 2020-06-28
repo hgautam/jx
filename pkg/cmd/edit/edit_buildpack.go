@@ -10,8 +10,8 @@ import (
 
 	"github.com/jenkins-x/jx/v2/pkg/builds"
 
+	"github.com/jenkins-x/jx-logging/pkg/log"
 	v1 "github.com/jenkins-x/jx/v2/pkg/apis/jenkins.io/v1"
-	"github.com/jenkins-x/jx/v2/pkg/log"
 	"github.com/jenkins-x/jx/v2/pkg/util"
 	"github.com/spf13/cobra"
 
@@ -90,7 +90,7 @@ func (o *EditBuildPackOptions) Run() error {
 	}
 
 	if isBoot {
-		log.Logger().Warnf("This functionality is not supported in boot based clusters, please checkout https://jenkins-x.io/commands/jx_edit_buildpack/ for how to specify custom buildpacks for boot clusters.")
+		log.Logger().Warnf("This functionality is not supported in boot based clusters, please checkout https://jenkins-x.io/docs/create-project/build-packs/ for how to specify custom buildpacks for boot clusters.")
 		return nil
 	}
 

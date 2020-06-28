@@ -3,7 +3,7 @@ package packages
 import (
 	"fmt"
 
-	"github.com/jenkins-x/jx/v2/pkg/log"
+	"github.com/jenkins-x/jx-logging/pkg/log"
 	"github.com/jenkins-x/jx/v2/pkg/util"
 	"sigs.k8s.io/yaml"
 
@@ -26,7 +26,7 @@ const IamAuthenticatorAwsVersion = "1.12.7"
 const EksCtlVersion = "0.11.1"
 
 // KubectlVersion binary version to use
-const KubectlVersion = "1.13.2"
+const KubectlVersion = "1.16.5"
 
 // Helm2Version binary version to use
 const Helm2Version = "2.12.2"
@@ -150,7 +150,7 @@ func RememberInstalledPackage(packageName string, version string) error {
 	if err != nil {
 		return err
 	}
-	err = ioutil.WriteFile(installedPackagesFile, binariesBytes, 0644)
+	err = ioutil.WriteFile(installedPackagesFile, binariesBytes, 0600)
 	if err != nil {
 		return err
 	}

@@ -40,7 +40,7 @@ func InstallCodeGenerators(version string, gopath string) error {
 	}
 	path := fmt.Sprintf("%s/...", basePath)
 	util.AppLogger().Infof("installing %s version %s into %s", path, version, gopath)
-	err := util.GoGet(path, version, gopath, true, false, true)
+	err := util.GoGet(path, version, gopath, true, false, false)
 	if err != nil {
 		return err
 	}
@@ -214,7 +214,7 @@ func fixClientImportsForSemVer(clientDir string, oldPackage string, semVerPackag
 				if err != nil {
 					return errors.Wrapf(err, "convert AST to []byte for %s", path)
 				}
-				err = ioutil.WriteFile(path, buf.Bytes(), 0644)
+				err = ioutil.WriteFile(path, buf.Bytes(), 0600)
 				if err != nil {
 					return errors.Wrapf(err, "writing %s", path)
 				}

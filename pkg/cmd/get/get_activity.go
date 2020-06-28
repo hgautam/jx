@@ -7,12 +7,12 @@ import (
 	"github.com/jenkins-x/jx/v2/pkg/cmd/helper"
 
 	"github.com/ghodss/yaml"
+	"github.com/jenkins-x/jx-logging/pkg/log"
 	v1 "github.com/jenkins-x/jx/v2/pkg/apis/jenkins.io/v1"
 	"github.com/jenkins-x/jx/v2/pkg/client/clientset/versioned"
 	"github.com/jenkins-x/jx/v2/pkg/cmd/opts"
 	"github.com/jenkins-x/jx/v2/pkg/cmd/templates"
 	"github.com/jenkins-x/jx/v2/pkg/kube"
-	"github.com/jenkins-x/jx/v2/pkg/log"
 	tbl "github.com/jenkins-x/jx/v2/pkg/table"
 	"github.com/jenkins-x/jx/v2/pkg/util"
 	"github.com/spf13/cobra"
@@ -109,7 +109,8 @@ func (o *GetActivityOptions) Run() error {
 	}
 
 	for _, activity := range list.Items {
-		o.addTableRow(&table, &activity)
+		a := activity
+		o.addTableRow(&table, &a)
 	}
 	table.Render()
 
@@ -136,7 +137,8 @@ func (o *GetActivityOptions) addTableRow(table *tbl.Table, activity *v1.Pipeline
 			statusText)
 		indent := indentation
 		for _, step := range spec.Steps {
-			o.addStepRow(table, &step, indent)
+			s := step
+			o.addStepRow(table, &s, indent)
 		}
 		return true
 	}
@@ -218,7 +220,8 @@ func addStageRow(table *tbl.Table, stage *v1.StageActivityStep, indent string) {
 
 	indent += indentation
 	for _, step := range stage.Steps {
-		addStepRowItem(table, &step, indent, "", "")
+		s := step
+		addStepRowItem(table, &s, indent, "", "")
 	}
 }
 

@@ -26,10 +26,10 @@ import (
 	"github.com/jenkins-x/jx/v2/pkg/vault"
 	certmngclient "github.com/jetstack/cert-manager/pkg/client/clientset/versioned"
 
+	"github.com/jenkins-x/jx-logging/pkg/log"
 	"github.com/jenkins-x/jx/v2/pkg/helm"
 	"github.com/jenkins-x/jx/v2/pkg/kube/services"
 	kubevault "github.com/jenkins-x/jx/v2/pkg/kube/vault"
-	"github.com/jenkins-x/jx/v2/pkg/log"
 
 	"github.com/jenkins-x/jx/v2/pkg/auth"
 	"github.com/jenkins-x/jx/v2/pkg/client/clientset/versioned"
@@ -43,10 +43,10 @@ import (
 	"k8s.io/client-go/rest"
 
 	vaultoperatorclient "github.com/banzaicloud/bank-vaults/operator/pkg/client/clientset/versioned"
-	kserve "github.com/knative/serving/pkg/client/clientset/versioned"
 	tektonclient "github.com/tektoncd/pipeline/pkg/client/clientset/versioned"
 	apiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	metricsclient "k8s.io/metrics/pkg/client/clientset/versioned"
+	kserve "knative.dev/serving/pkg/client/clientset/versioned"
 
 	// this is so that we load the auth plugins so we can connect to, say, GCP
 

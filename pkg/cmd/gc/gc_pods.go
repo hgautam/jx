@@ -7,9 +7,9 @@ import (
 	"github.com/jenkins-x/jx/v2/pkg/cmd/helper"
 	"github.com/jenkins-x/jx/v2/pkg/errorutil"
 
+	"github.com/jenkins-x/jx-logging/pkg/log"
 	"github.com/jenkins-x/jx/v2/pkg/cmd/opts"
 	"github.com/jenkins-x/jx/v2/pkg/cmd/templates"
-	"github.com/jenkins-x/jx/v2/pkg/log"
 	"github.com/spf13/cobra"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -86,7 +86,8 @@ func (o *GCPodsOptions) Run() error {
 
 	deleteOptions := &metav1.DeleteOptions{}
 	errors := []error{}
-	for _, pod := range podList.Items {
+	for _, p := range podList.Items {
+		pod := p
 		matches, age := o.MatchesPod(&pod)
 		if matches {
 			err := podInterface.Delete(pod.Name, deleteOptions)

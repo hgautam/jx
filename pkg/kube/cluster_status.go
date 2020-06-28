@@ -6,7 +6,7 @@ import (
 
 	"github.com/jenkins-x/jx/v2/pkg/util"
 
-	"github.com/jenkins-x/jx/v2/pkg/log"
+	"github.com/jenkins-x/jx-logging/pkg/log"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -76,7 +76,6 @@ func GetClusterStatus(client kubernetes.Interface, namespace string, verbose boo
 	}
 	for _, node := range nodes.Items {
 		if verbose {
-
 			log.Logger().Infof("\n-------------------------")
 			log.Logger().Infof("Node:\n%s\n", node.Name)
 		}
@@ -203,7 +202,8 @@ func getPodsTotalRequestsAndLimits(podList *v1.PodList, verbose bool) (reqs map[
 		log.Logger().Infof("Pods:")
 	}
 
-	for _, pod := range podList.Items {
+	for _, p := range podList.Items {
+		pod := p
 		podReqs, podLimits := PodRequestsAndLimits(&pod)
 
 		if verbose {
@@ -222,7 +222,7 @@ func getPodsTotalRequestsAndLimits(podList *v1.PodList, verbose bool) (reqs map[
 
 		for podReqName, podReqValue := range podReqs {
 			if value, ok := reqs[podReqName]; !ok {
-				reqs[podReqName] = *podReqValue.Copy()
+				reqs[podReqName] = podReqValue.DeepCopy()
 			} else {
 				value.Add(podReqValue)
 				reqs[podReqName] = value
@@ -230,7 +230,7 @@ func getPodsTotalRequestsAndLimits(podList *v1.PodList, verbose bool) (reqs map[
 		}
 		for podLimitName, podLimitValue := range podLimits {
 			if value, ok := limits[podLimitName]; !ok {
-				limits[podLimitName] = *podLimitValue.Copy()
+				limits[podLimitName] = podLimitValue.DeepCopy()
 			} else {
 				value.Add(podLimitValue)
 				limits[podLimitName] = value
@@ -250,7 +250,7 @@ func PodRequestsAndLimits(pod *v1.Pod) (reqs map[v1.ResourceName]resource.Quanti
 	for _, container := range pod.Spec.Containers {
 		for name, quantity := range container.Resources.Requests {
 			if value, ok := reqs[name]; !ok {
-				reqs[name] = *quantity.Copy()
+				reqs[name] = quantity.DeepCopy()
 			} else {
 				value.Add(quantity)
 				reqs[name] = value
@@ -258,7 +258,7 @@ func PodRequestsAndLimits(pod *v1.Pod) (reqs map[v1.ResourceName]resource.Quanti
 		}
 		for name, quantity := range container.Resources.Limits {
 			if value, ok := limits[name]; !ok {
-				limits[name] = *quantity.Copy()
+				limits[name] = quantity.DeepCopy()
 			} else {
 				value.Add(quantity)
 				limits[name] = value
@@ -270,21 +270,21 @@ func PodRequestsAndLimits(pod *v1.Pod) (reqs map[v1.ResourceName]resource.Quanti
 		for name, quantity := range container.Resources.Requests {
 			value, ok := reqs[name]
 			if !ok {
-				reqs[name] = *quantity.Copy()
+				reqs[name] = quantity.DeepCopy()
 				continue
 			}
 			if quantity.Cmp(value) > 0 {
-				reqs[name] = *quantity.Copy()
+				reqs[name] = quantity.DeepCopy()
 			}
 		}
 		for name, quantity := range container.Resources.Limits {
 			value, ok := limits[name]
 			if !ok {
-				limits[name] = *quantity.Copy()
+				limits[name] = quantity.DeepCopy()
 				continue
 			}
 			if quantity.Cmp(value) > 0 {
-				limits[name] = *quantity.Copy()
+				limits[name] = quantity.DeepCopy()
 			}
 		}
 	}
@@ -292,7 +292,7 @@ func PodRequestsAndLimits(pod *v1.Pod) (reqs map[v1.ResourceName]resource.Quanti
 }
 
 func RoleBindings(client kubernetes.Interface, namespace string) (string, error) {
-	binding, err := client.Rbac().RoleBindings(namespace).Get("", metav1.GetOptions{})
+	binding, err := client.RbacV1().RoleBindings(namespace).Get("", metav1.GetOptions{})
 	if err != nil {
 		return "", err
 	}

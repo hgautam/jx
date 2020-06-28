@@ -9,8 +9,8 @@ import (
 
 	gerrit "github.com/andygrunwald/go-gerrit"
 	"github.com/google/go-github/github"
+	"github.com/jenkins-x/jx-logging/pkg/log"
 	"github.com/jenkins-x/jx/v2/pkg/auth"
-	"github.com/jenkins-x/jx/v2/pkg/log"
 	"github.com/pkg/errors"
 )
 
@@ -87,8 +87,9 @@ func (p *GerritProvider) ListRepositories(org string) ([]*GitRepository, error) 
 	repos := []*GitRepository{}
 
 	for name, project := range *gerritProjects {
-		project.Name = name
-		repo := p.projectInfoToGitRepository(&project)
+		proj := project
+		proj.Name = name
+		repo := p.projectInfoToGitRepository(&proj)
 
 		repos = append(repos, repo)
 	}

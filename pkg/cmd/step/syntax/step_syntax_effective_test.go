@@ -11,10 +11,12 @@ import (
 	"testing"
 
 	"github.com/jenkins-x/jx/v2/pkg/cmd/opts/step"
+	"github.com/jenkins-x/jx/v2/pkg/tekton"
 
 	"github.com/jenkins-x/jx/v2/pkg/versionstream"
 
 	"github.com/google/go-cmp/cmp/cmpopts"
+	"github.com/jenkins-x/jx-logging/pkg/log"
 	"github.com/jenkins-x/jx/v2/pkg/cmd/opts"
 	"github.com/jenkins-x/jx/v2/pkg/cmd/step/syntax"
 	"github.com/jenkins-x/jx/v2/pkg/cmd/testhelpers"
@@ -24,17 +26,16 @@ import (
 	helm_test "github.com/jenkins-x/jx/v2/pkg/helm/mocks"
 	"github.com/jenkins-x/jx/v2/pkg/jenkinsfile"
 	"github.com/jenkins-x/jx/v2/pkg/kube"
-	"github.com/jenkins-x/jx/v2/pkg/log"
 	jxsyntax "github.com/jenkins-x/jx/v2/pkg/tekton/syntax"
 	sht "github.com/jenkins-x/jx/v2/pkg/tekton/syntax/syntax_helpers_test"
 	"github.com/jenkins-x/jx/v2/pkg/tests"
-	"github.com/knative/pkg/kmp"
 	uuid "github.com/satori/go.uuid"
 	"github.com/stretchr/testify/assert"
 	tb "github.com/tektoncd/pipeline/test/builder"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"knative.dev/pkg/kmp"
 	"sigs.k8s.io/yaml"
 )
 
@@ -944,7 +945,7 @@ func TestCreateCanonicalPipeline(t *testing.T) {
 				SourceName: "source",
 				StepOptions: step.StepOptions{
 					CommonOptions: &opts.CommonOptions{
-						ServiceAccount: "tekton-bot",
+						ServiceAccount: tekton.DefaultPipelineSA,
 					},
 				},
 				ValidateInCluster: true,

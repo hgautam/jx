@@ -21,6 +21,7 @@ import (
 
 	randomdata "github.com/Pallinder/go-randomdata"
 	"github.com/blang/semver"
+	"github.com/jenkins-x/jx-logging/pkg/log"
 	jenkinsv1 "github.com/jenkins-x/jx/v2/pkg/apis/jenkins.io/v1"
 	"github.com/jenkins-x/jx/v2/pkg/cloud"
 	"github.com/jenkins-x/jx/v2/pkg/cloud/gke"
@@ -31,7 +32,6 @@ import (
 	"github.com/jenkins-x/jx/v2/pkg/kube"
 	"github.com/jenkins-x/jx/v2/pkg/kube/cluster"
 	"github.com/jenkins-x/jx/v2/pkg/kube/services"
-	"github.com/jenkins-x/jx/v2/pkg/log"
 	"github.com/jenkins-x/jx/v2/pkg/packages"
 	"github.com/jenkins-x/jx/v2/pkg/prow"
 	"github.com/jenkins-x/jx/v2/pkg/util"
@@ -368,7 +368,7 @@ func (o *CommonOptions) installHelmSecretsPlugin(helmBinary string, clientOnly b
 }
 
 // GetLatestJXVersion returns latest jx version
-func (o *CommonOptions) GetLatestJXVersion(resolver *versionstream.VersionResolver) (semver.Version, error) {
+func (o *CommonOptions) GetLatestJXVersion(resolver versionstream.Streamer) (semver.Version, error) {
 	if config.LatestVersionStringsBucket != "" {
 		err := o.InstallRequirements(cloud.GKE)
 		if err != nil {
@@ -382,7 +382,7 @@ func (o *CommonOptions) GetLatestJXVersion(resolver *versionstream.VersionResolv
 		return util.GetLatestVersionStringFromBucketURLs(latestVersionStrings)
 	}
 
-	dir := resolver.VersionsDir
+	dir := resolver.GetVersionsDir()
 	matrix, err := dependencymatrix.LoadDependencyMatrix(dir)
 	if err != nil {
 		return semver.Version{}, errors.Wrapf(err, "failed to load dependency matrix from version stream at %s", dir)
@@ -833,7 +833,8 @@ func (o *CommonOptions) InstallProw(useTekton bool, useExternalDNS bool, isGitOp
 	prowVersion := o.Version
 
 	setValues = append(setValues,
-		"auth.git.username="+gitUsername)
+		"auth.git.username="+gitUsername,
+		"webhook.enabled=false")
 
 	ksecretValues = append(ksecretValues,
 		"auth.git.password="+o.OAUTHToken)

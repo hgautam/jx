@@ -12,8 +12,8 @@ import (
 
 	"gopkg.in/src-d/go-git.v4/plumbing/object"
 
+	"github.com/jenkins-x/jx-logging/pkg/log"
 	jenkinsv1 "github.com/jenkins-x/jx/v2/pkg/apis/jenkins.io/v1"
-	"github.com/jenkins-x/jx/v2/pkg/log"
 
 	jenkninsv1client "github.com/jenkins-x/jx/v2/pkg/client/clientset/versioned"
 
@@ -44,7 +44,8 @@ func (r *GitUserResolver) GitSignatureAsUser(signature *object.Signature) (*jenk
 func (r *GitUserResolver) GitUserSliceAsUserDetailsSlice(users []gits.GitUser) ([]jenkinsv1.UserDetails, error) {
 	answer := []jenkinsv1.UserDetails{}
 	for _, user := range users {
-		u, err := r.Resolve(&user)
+		us := user
+		u, err := r.Resolve(&us)
 		if err != nil {
 			return nil, err
 		}

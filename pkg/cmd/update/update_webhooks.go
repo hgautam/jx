@@ -7,8 +7,8 @@ import (
 	"github.com/jenkins-x/jx/v2/pkg/cmd/helper"
 	"github.com/jenkins-x/jx/v2/pkg/kube"
 
+	"github.com/jenkins-x/jx-logging/pkg/log"
 	"github.com/jenkins-x/jx/v2/pkg/gits"
-	"github.com/jenkins-x/jx/v2/pkg/log"
 	"github.com/jenkins-x/jx/v2/pkg/util"
 	"github.com/pkg/errors"
 
@@ -124,7 +124,8 @@ func (o *UpdateWebhooksOptions) Run() error {
 	envMap, _, err := kube.GetEnvironments(jxClient, ns)
 
 	for _, sr := range srList.Items {
-		_, err2 := o.UpdateWebhookForSourceRepository(&sr, envMap, err, webhookURL, hmacToken)
+		sourceRepo := sr
+		_, err2 := o.UpdateWebhookForSourceRepository(&sourceRepo, envMap, err, webhookURL, hmacToken)
 		if err2 != nil {
 			return err2
 		}
