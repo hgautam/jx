@@ -102,7 +102,7 @@ func NewCmdBoot(commonOpts *opts.CommonOptions) *cobra.Command {
 	cmd.Flags().StringVarP(&options.StartStep, "start-step", "s", "", "the step in the pipeline to start from")
 	cmd.Flags().StringVarP(&options.EndStep, "end-step", "e", "", "the step in the pipeline to end at")
 	cmd.Flags().StringVarP(&options.HelmLogLevel, "helm-log", "v", "", "sets the helm logging level from 0 to 9. Passed into the helm CLI via the '-v' argument. Useful to diagnose helm related issues")
-	cmd.Flags().StringVarP(&options.RequirementsFile, "requirements", "r", "", "requirements file which will overwrite the default requirements file")
+	cmd.Flags().StringVarP(&options.RequirementsFile, "requirements", "r", "", "WARNING: this should only be used for the initial boot of a cluster: requirements file which will overwrite the default requirements file")
 	cmd.Flags().BoolVarP(&options.AttemptRestore, "attempt-restore", "a", false, "attempt to boot from an existing dev environment repository")
 	cmd.Flags().BoolVarP(&options.NoUpgradeGit, "no-update-git", "", false, "disables any attempt to update the local git clone if its old")
 
@@ -182,6 +182,13 @@ func (o *BootOptions) Run() error {
 	projectConfig, pipelineFile, err := config.LoadProjectConfig(o.Dir)
 	if err != nil {
 		return err
+	}
+
+	// check if the user has passed in a requirements file to a cluster which has already been provisioned.
+	if o.RequirementsFile != "" {
+		if err := o.checkIfProvidedRequirementsArePossiblyStale(); err != nil {
+			return errors.Wrapf(err, "loading from provided requirements file")
+		}
 	}
 
 	if err := o.overrideRequirements(gitURL); err != nil {
@@ -494,6 +501,17 @@ func existingBootClone(dir string) (bool, error) {
 		return false, err
 	}
 	return requirementsExist && pipelineExists, nil
+}
+
+func (o *BootOptions) checkIfProvidedRequirementsArePossiblyStale() error {
+	_, devEnv := o.GetDevEnv()
+	if devEnv != nil {
+		log.Logger().Warnf("It seems you're passing a requirements file to cluster which has already been provisioned.")
+		log.Logger().Warnf("We recommend you update the %s file at %s, using the updates provided within your local %s file.",
+			config.RequirementsConfigFileName, devEnv.Spec.Source, o.RequirementsFile)
+		return errors.New("attempting to boot cluster using a requirements file which is possibly stale")
+	}
+	return nil
 }
 
 func (o *BootOptions) overrideRequirements(defaultBootConfigURL string) error {

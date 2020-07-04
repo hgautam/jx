@@ -1,8 +1,8 @@
 package opts
 
 import (
+	jenkinsv1 "github.com/jenkins-x/jx-api/pkg/apis/jenkins.io/v1"
 	"github.com/jenkins-x/jx-logging/pkg/log"
-	jenkinsv1 "github.com/jenkins-x/jx/v2/pkg/apis/jenkins.io/v1"
 	"github.com/jenkins-x/jx/v2/pkg/kube"
 	"github.com/jenkins-x/jx/v2/pkg/kube/services"
 )
@@ -24,12 +24,12 @@ func (o *CommonOptions) GetDevEnv() (gitOps bool, devEnv *jenkinsv1.Environment)
 	// and also access the team settings, so load those
 	jxClient, ns, err := o.JXClientAndDevNamespace()
 	if err != nil {
-		log.Logger().Errorf("Error loading team settings. %v", err)
+		log.Logger().Warnf("when attempting to create jx client. %v", err)
 		return false, &jenkinsv1.Environment{}
 	} else {
 		devEnv, err := kube.GetDevEnvironment(jxClient, ns)
 		if err != nil {
-			log.Logger().Errorf("Error loading team settings. %v", err)
+			log.Logger().Warnf("when attempting to load team settings. %v", err)
 			return false, &jenkinsv1.Environment{}
 		}
 		gitOps := false

@@ -7,14 +7,13 @@ import (
 	"testing"
 	"time"
 
-	v1 "github.com/jenkins-x/jx/v2/pkg/apis/jenkins.io/v1"
+	v1 "github.com/jenkins-x/jx-api/pkg/apis/jenkins.io/v1"
 
 	"github.com/ghodss/yaml"
 
 	"github.com/jenkins-x/jx/v2/pkg/pipelinescheduler"
 	"github.com/jenkins-x/lighthouse-config/pkg/config"
-
-	"k8s.io/test-infra/prow/plugins"
+	"github.com/jenkins-x/lighthouse-config/pkg/plugins"
 
 	"github.com/stretchr/testify/assert"
 
