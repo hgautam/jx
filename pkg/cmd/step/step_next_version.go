@@ -391,9 +391,11 @@ func (o *StepNextVersionOptions) SetVersion() error {
 
 	lines := strings.Split(string(b), "\n")
 
+	replaced := false
 	for i, line := range lines {
-		if strings.Contains(line, matchField) {
+		if !replaced && strings.Contains(line, matchField) {
 			lines[i] = regex.ReplaceAllString(line, o.NewVersion)
+			replaced = true
 		} else {
 			lines[i] = line
 		}
@@ -408,7 +410,7 @@ func (o *StepNextVersionOptions) SetVersion() error {
 		// lets not commit to git as we do that in the tag step
 		return nil
 	}
-	err = o.Git().Add(o.Dir, o.Filename)
+	err = o.Git().Add(o.Dir, "*")
 	if err != nil {
 		return err
 	}
